@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Ant Colony Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui-overlay">
+            <div id="stats">
+                <div class="stat">
+                    <span class="label">Food:</span>
+                    <span id="food-count">0</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Workers:</span>
+                    <span id="worker-count">1</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Health:</span>
+                    <span id="health">100</span>
+                </div>
+            </div>
+            <div id="controls-hint">
+                <p>🎮 Touch joystick to move | Dig tunnels | Collect food | Defend your colony!</p>
+            </div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div id="joystick-container">
+            <div id="joystick-base">
+                <div id="joystick-stick"></div>
+            </div>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>

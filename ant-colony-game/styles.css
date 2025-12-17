@@ -1,0 +1,135 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1a1a1a;
+    color: #fff;
+    overflow: hidden;
+    touch-action: none;
+}
+
+#game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2d1810;
+}
+
+#gameCanvas {
+    display: block;
+    background: #1a0f0a;
+    border: 2px solid #4a3020;
+    max-width: 100%;
+    max-height: 100%;
+    touch-action: none;
+}
+
+#ui-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 10px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+#stats {
+    display: flex;
+    gap: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 15px;
+    border-radius: 8px;
+    backdrop-filter: blur(5px);
+    flex-wrap: wrap;
+}
+
+.stat {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.stat .label {
+    font-weight: bold;
+    color: #ffa500;
+}
+
+.stat span:last-child {
+    color: #fff;
+    font-size: 1.1em;
+}
+
+#controls-hint {
+    margin-top: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    text-align: center;
+}
+
+#joystick-container {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 15;
+    touch-action: none;
+}
+
+#joystick-base {
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    position: relative;
+    touch-action: none;
+}
+
+#joystick-stick {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 165, 0, 0.8);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.1s ease;
+    touch-action: none;
+}
+
+/* Desktop keyboard hint */
+@media (min-width: 768px) {
+    #controls-hint p::before {
+        content: '⌨️ Arrow keys or WASD to move | ';
+    }
+
+    #joystick-container {
+        opacity: 0.3;
+    }
+}
+
+/* Mobile optimizations */
+@media (max-width: 767px) {
+    #stats {
+        font-size: 0.9em;
+        gap: 10px;
+        padding: 8px 12px;
+    }
+
+    #controls-hint {
+        font-size: 0.8em;
+        padding: 6px 10px;
+    }
+}
