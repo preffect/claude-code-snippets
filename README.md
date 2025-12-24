@@ -80,14 +80,13 @@ This game is built with:
 ## File Structure
 
 ```
-ant-colony-game/
 ├── index.html    # Main game page
 ├── styles.css    # Game styling and UI
 ├── game.js       # Complete game logic
 └── README.md     # This file
 ```
 
-All game code is self-contained in this folder - no external dependencies required!
+All game code is self-contained - no external dependencies required!
 
 ## Browser Compatibility
 
