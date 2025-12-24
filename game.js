@@ -28,6 +28,11 @@ class Game {
         this.foodSources = [];
         this.colonyFood = 0;
 
+        // Visual effects
+        this.particles = [];
+        this.screenShake = { x: 0, y: 0, intensity: 0 };
+        this.ambientParticles = [];
+
         // Input
         this.keys = {};
         this.joystick = new Joystick();
@@ -220,6 +225,19 @@ class Game {
         // Remove depleted food sources
         this.foodSources = this.foodSources.filter(f => f.amount > 0);
 
+        // Update particles
+        this.particles.forEach(p => p.update(dt));
+        this.particles = this.particles.filter(p => p.life > 0);
+
+        // Update ambient particles
+        this.updateAmbientParticles(dt);
+
+        // Update screen shake
+        if (this.screenShake.intensity > 0) {
+            this.screenShake.intensity *= 0.9;
+            if (this.screenShake.intensity < 0.01) this.screenShake.intensity = 0;
+        }
+
         // Update camera
         this.updateCamera();
 
@@ -263,6 +281,15 @@ class Game {
         this.camera.x += (targetX - this.camera.x) * 0.1;
         this.camera.y += (targetY - this.camera.y) * 0.1;
 
+        // Add screen shake
+        if (this.screenShake.intensity > 0) {
+            this.screenShake.x = (Math.random() - 0.5) * this.screenShake.intensity;
+            this.screenShake.y = (Math.random() - 0.5) * this.screenShake.intensity;
+        } else {
+            this.screenShake.x = 0;
+            this.screenShake.y = 0;
+        }
+
         // Clamp camera to world bounds
         this.camera.x = Math.max(0, Math.min(this.camera.x,
             this.worldWidth * this.tileSize - this.canvas.width));
@@ -300,40 +327,78 @@ class Game {
 
         // Render queen
         if (this.queen) {
-            this.queen.render(ctx, this.camera, this.tileSize);
+            this.queen.render(ctx, this.camera, this.tileSize, this);
         }
 
         // Render workers
-        this.workers.forEach(worker => worker.render(ctx, this.camera, this.tileSize));
+        this.workers.forEach(worker => worker.render(ctx, this.camera, this.tileSize, this));
 
         // Render enemies
-        this.enemies.forEach(enemy => enemy.render(ctx, this.camera, this.tileSize));
+        this.enemies.forEach(enemy => enemy.render(ctx, this.camera, this.tileSize, this));
 
         // Render player
         if (this.player) {
-            this.player.render(ctx, this.camera, this.tileSize);
+            this.player.render(ctx, this.camera, this.tileSize, this);
         }
+
+        // Render particles
+        this.particles.forEach(p => p.render(ctx, this.camera, this.tileSize));
     }
 
     renderTile(x, y) {
         const tile = this.tiles[y][x];
-        const screenX = x * this.tileSize - this.camera.x;
-        const screenY = y * this.tileSize - this.camera.y;
+        const screenX = x * this.tileSize - this.camera.x + this.screenShake.x;
+        const screenY = y * this.tileSize - this.camera.y + this.screenShake.y;
 
         if (tile.dug || tile.type === 'air') {
-            // Air/dug tunnel
-            this.ctx.fillStyle = '#0a0505';
-            this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
-        } else {
-            // Dirt
-            const depth = y / this.worldHeight;
-            const brown = Math.floor(60 + depth * 40);
-            this.ctx.fillStyle = `rgb(${brown}, ${brown * 0.5}, ${brown * 0.3})`;
+            // Air/dug tunnel with slight variation
+            const variation = (x * 13 + y * 17) % 10;
+            const darkness = 10 + variation;
+            this.ctx.fillStyle = `rgb(${darkness}, ${darkness * 0.5}, ${darkness * 0.5})`;
             this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
 
-            // Add texture
-            this.ctx.fillStyle = `rgba(0, 0, 0, ${0.1 + Math.random() * 0.1})`;
+            // Add tunnel edges glow
+            if (!this.getTile(x-1, y)?.dug || !this.getTile(x+1, y)?.dug ||
+                !this.getTile(x, y-1)?.dug || !this.getTile(x, y+1)?.dug) {
+                this.ctx.fillStyle = 'rgba(40, 20, 10, 0.3)';
+                this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+            }
+        } else {
+            // Dirt with procedural texture
+            const depth = y / this.worldHeight;
+            const brown = Math.floor(60 + depth * 40);
+            const baseColor = `rgb(${brown}, ${brown * 0.5}, ${brown * 0.3})`;
+            this.ctx.fillStyle = baseColor;
             this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+
+            // Procedural noise texture
+            const seed = x * 73 + y * 37;
+            for (let i = 0; i < 3; i++) {
+                const noiseX = ((seed + i * 23) % this.tileSize);
+                const noiseY = ((seed * 2 + i * 17) % this.tileSize);
+                const size = 2 + (seed % 3);
+                const opacity = 0.1 + ((seed + i) % 10) / 100;
+
+                this.ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+                this.ctx.fillRect(screenX + noiseX, screenY + noiseY, size, size);
+            }
+
+            // Digging progress indicator
+            if (tile.digProgress && tile.digProgress > 0) {
+                const progress = tile.digProgress / tile.hardness;
+                this.ctx.fillStyle = `rgba(80, 60, 40, ${progress * 0.5})`;
+                this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+
+                // Cracks
+                if (progress > 0.3) {
+                    this.ctx.strokeStyle = `rgba(40, 30, 20, ${progress})`;
+                    this.ctx.lineWidth = 1;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(screenX + 2, screenY + 5);
+                    this.ctx.lineTo(screenX + this.tileSize - 2, screenY + this.tileSize - 5);
+                    this.ctx.stroke();
+                }
+            }
         }
     }
 
@@ -362,14 +427,104 @@ class Game {
             const tile = this.tiles[ty][tx];
             if (!tile.dug && tile.type === 'dirt') {
                 tile.digProgress = (tile.digProgress || 0) + digPower;
+
+                // Spawn digging particles
+                if (Math.random() < 0.3) {
+                    this.spawnDigParticles(tx + 0.5, ty + 0.5);
+                }
+
                 if (tile.digProgress >= tile.hardness) {
                     tile.dug = true;
                     tile.type = 'air';
+                    // Spawn burst of particles
+                    this.spawnDigBurst(tx + 0.5, ty + 0.5);
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    spawnDigParticles(x, y) {
+        for (let i = 0; i < 2; i++) {
+            this.particles.push(new Particle(
+                x, y,
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2,
+                '#8B4513',
+                0.3 + Math.random() * 0.3,
+                2 + Math.random() * 2
+            ));
+        }
+    }
+
+    spawnDigBurst(x, y) {
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const speed = 1 + Math.random() * 2;
+            this.particles.push(new Particle(
+                x, y,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed,
+                Math.random() < 0.5 ? '#8B4513' : '#A0522D',
+                0.5 + Math.random() * 0.5,
+                3 + Math.random() * 3
+            ));
+        }
+    }
+
+    spawnFoodParticles(x, y) {
+        for (let i = 0; i < 10; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.5 + Math.random() * 1.5;
+            this.particles.push(new Particle(
+                x, y,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed - 1,
+                Math.random() < 0.5 ? '#FFD700' : '#FFA500',
+                0.8 + Math.random() * 0.4,
+                4 + Math.random() * 3,
+                'sparkle'
+            ));
+        }
+    }
+
+    spawnHitParticles(x, y) {
+        for (let i = 0; i < 5; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 2;
+            this.particles.push(new Particle(
+                x, y,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed,
+                '#FF0000',
+                0.3 + Math.random() * 0.2,
+                3 + Math.random() * 2
+            ));
+        }
+        this.screenShake.intensity = 5;
+    }
+
+    updateAmbientParticles(dt) {
+        // Spawn ambient dust particles in tunnels near player
+        if (this.player && Math.random() < 0.1) {
+            const offsetX = (Math.random() - 0.5) * 20;
+            const offsetY = (Math.random() - 0.5) * 15;
+            const x = this.player.x + offsetX;
+            const y = this.player.y + offsetY;
+
+            if (this.getTile(x, y)?.dug) {
+                this.particles.push(new Particle(
+                    x, y,
+                    (Math.random() - 0.5) * 0.3,
+                    -0.1 - Math.random() * 0.2,
+                    'rgba(200, 180, 150, 0.3)',
+                    2 + Math.random() * 3,
+                    1 + Math.random(),
+                    'dust'
+                ));
+            }
+        }
     }
 
     addFood(amount) {
@@ -501,11 +656,13 @@ class Ant {
         }
     }
 
-    render(ctx, camera, tileSize) {
+    render(ctx, camera, tileSize, game = null) {
         if (!this.alive) return;
 
-        const screenX = this.x * tileSize - camera.x;
-        const screenY = this.y * tileSize - camera.y;
+        const shakeX = game ? game.screenShake.x : 0;
+        const shakeY = game ? game.screenShake.y : 0;
+        const screenX = this.x * tileSize - camera.x + shakeX;
+        const screenY = this.y * tileSize - camera.y + shakeY;
         const size = this.size * tileSize;
 
         // Body
@@ -618,6 +775,7 @@ class WorkerAnt extends Ant {
                     food.amount -= taken;
                     this.foodAmount = taken;
                     this.carryingFood = true;
+                    game.spawnFoodParticles(this.x, this.y);
                     break;
                 }
             }
@@ -690,6 +848,7 @@ class WorkerAnt extends Ant {
                     this.foodAmount = taken;
                     this.carryingFood = true;
                     this.state = 'carrying';
+                    game.spawnFoodParticles(this.x, this.y);
                 }
             } else {
                 // Wander
@@ -742,18 +901,21 @@ class WorkerAnt extends Ant {
                 if (this.attackCooldown === 0) {
                     enemy.takeDamage(10);
                     this.attackCooldown = 1;
+                    game.spawnHitParticles(enemy.x, enemy.y);
                 }
             }
         }
     }
 
-    render(ctx, camera, tileSize) {
-        super.render(ctx, camera, tileSize);
+    render(ctx, camera, tileSize, game = null) {
+        super.render(ctx, camera, tileSize, game);
 
         // Draw food if carrying
         if (this.carryingFood) {
-            const screenX = this.x * tileSize - camera.x;
-            const screenY = this.y * tileSize - camera.y;
+            const shakeX = game ? game.screenShake.x : 0;
+            const shakeY = game ? game.screenShake.y : 0;
+            const screenX = this.x * tileSize - camera.x + shakeX;
+            const screenY = this.y * tileSize - camera.y + shakeY;
 
             ctx.fillStyle = '#ff0';
             ctx.beginPath();
@@ -786,9 +948,11 @@ class Queen extends Ant {
         }
     }
 
-    render(ctx, camera, tileSize) {
-        const screenX = this.x * tileSize - camera.x;
-        const screenY = this.y * tileSize - camera.y;
+    render(ctx, camera, tileSize, game = null) {
+        const shakeX = game ? game.screenShake.x : 0;
+        const shakeY = game ? game.screenShake.y : 0;
+        const screenX = this.x * tileSize - camera.x + shakeX;
+        const screenY = this.y * tileSize - camera.y + shakeY;
         const size = this.size * tileSize;
 
         // Large body
@@ -893,6 +1057,7 @@ class EnemyAnt extends Ant {
             if (nearestDist < this.attackRange && this.attackCooldown === 0) {
                 nearest.takeDamage(5);
                 this.attackCooldown = 1;
+                game.spawnHitParticles(nearest.x, nearest.y);
             }
         } else {
             // Patrol near nest
@@ -942,17 +1107,30 @@ class FoodSource {
         this.y = y;
         this.amount = amount;
         this.maxAmount = amount;
+        this.pulseTimer = Math.random() * Math.PI * 2;
     }
 
-    render(ctx, camera, tileSize) {
+    render(ctx, camera, tileSize, game = null) {
         if (this.amount <= 0) return;
 
         const screenX = this.x * tileSize - camera.x;
         const screenY = this.y * tileSize - camera.y;
 
-        // Draw food blob
-        const radius = 5 + (this.amount / this.maxAmount) * 10;
+        // Draw food blob with pulse effect
+        this.pulseTimer += 0.05;
+        const pulse = Math.sin(this.pulseTimer) * 0.1 + 1;
+        const radius = (5 + (this.amount / this.maxAmount) * 10) * pulse;
 
+        // Glow
+        const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius * 1.5);
+        gradient.addColorStop(0, 'rgba(255, 235, 59, 0.6)');
+        gradient.addColorStop(1, 'rgba(255, 235, 59, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Main blob
         ctx.fillStyle = '#ffeb3b';
         ctx.beginPath();
         ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
@@ -964,9 +1142,97 @@ class FoodSource {
 
         // Amount text
         ctx.fillStyle = '#000';
-        ctx.font = '10px Arial';
+        ctx.font = 'bold 10px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(this.amount, screenX, screenY + 3);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.amount, screenX, screenY);
+    }
+}
+
+class Particle {
+    constructor(x, y, vx, vy, color, life, size, type = 'default') {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.color = color;
+        this.life = life;
+        this.maxLife = life;
+        this.size = size;
+        this.type = type;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.2;
+    }
+
+    update(dt) {
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        this.life -= dt;
+
+        // Gravity for non-dust particles
+        if (this.type !== 'dust') {
+            this.vy += 5 * dt;
+        }
+
+        // Friction
+        this.vx *= 0.98;
+        this.vy *= 0.98;
+
+        this.rotation += this.rotationSpeed;
+    }
+
+    render(ctx, camera, tileSize) {
+        if (this.life <= 0) return;
+
+        const screenX = this.x * tileSize - camera.x;
+        const screenY = this.y * tileSize - camera.y;
+
+        const alpha = Math.min(1, this.life / this.maxLife);
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+
+        if (this.type === 'sparkle') {
+            // Star sparkle effect
+            ctx.translate(screenX, screenY);
+            ctx.rotate(this.rotation);
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const angle = (i / 5) * Math.PI * 2;
+                const x = Math.cos(angle) * this.size;
+                const y = Math.sin(angle) * this.size;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+
+                const innerAngle = angle + Math.PI / 5;
+                const ix = Math.cos(innerAngle) * this.size * 0.4;
+                const iy = Math.sin(innerAngle) * this.size * 0.4;
+                ctx.lineTo(ix, iy);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            // Glow
+            ctx.fillStyle = `rgba(255, 255, 200, ${alpha * 0.5})`;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (this.type === 'dust') {
+            // Soft dust particle
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, this.size, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // Default dirt particle
+            ctx.translate(screenX, screenY);
+            ctx.rotate(this.rotation);
+            ctx.fillStyle = this.color;
+            ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+        }
+
+        ctx.restore();
     }
 }
 
