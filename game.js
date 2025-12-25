@@ -477,13 +477,6 @@ class Game {
 
         // Render particles
         this.particles.forEach(p => p.render(ctx, this.camera, this.tileSize));
-
-        // Test text - fair food distribution update
-        ctx.fillStyle = '#ffff00';
-        ctx.font = 'bold 28px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('FAIR FOOD v3 ✓', this.canvas.width / 2, this.canvas.height / 2);
     }
 
     renderTile(x, y) {
