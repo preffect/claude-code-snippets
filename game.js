@@ -1679,12 +1679,20 @@ class WorkerAnt extends Ant {
             const targetTile = game.getTile(newX, newY);
             const canClimbHere = targetTile && targetTile.type === 'plant';
 
+            // Debug: Log when climbing plants
+            if (canClimbHere && newY < 8) {
+                console.log(`🌱 [CLIMB] Ant climbing plant at y=${newY.toFixed(2)}`);
+            }
+
             // Ants can't fly - prevent movement above grass level (y < 8) unless on a plant
             if ((newY >= 8 || canClimbHere) && game.canMove(newX, newY)) {
                 this.x = newX;
                 this.y = newY;
             } else if (newY < 8 && !canClimbHere) {
                 // Can't move into air - do nothing
+                if (input.y < 0) { // Trying to move up into air
+                    console.log(`❌ [BLOCKED] Can't fly! y=${this.y.toFixed(2)} → ${newY.toFixed(2)} (no plant here)`);
+                }
             } else {
                 // Blocked - try digging
                 // For diagonal movement, dig both X and Y blocking tiles
