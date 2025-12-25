@@ -69,6 +69,9 @@ class Game {
     }
 
     generateWorld() {
+        // Track all spawn locations for fair food distribution
+        this.spawnLocations = [];
+
         // Initialize world with dirt tiles
         for (let y = 0; y < this.worldHeight; y++) {
             this.tiles[y] = [];
@@ -103,11 +106,14 @@ class Game {
             }
         }
 
-        // Spawn some food sources
-        this.spawnFoodSources(5);
+        // Track player spawn location
+        this.spawnLocations.push({ x: startX, y: startY });
 
-        // Spawn some enemy nests
+        // Spawn enemy nests BEFORE food
         this.spawnEnemyNests(3);
+
+        // Spawn food sources with distance checks from all spawn points
+        this.spawnFoodSources(5);
     }
 
     generateCaves() {
@@ -201,20 +207,41 @@ class Game {
 
     spawnFoodSources(count) {
         // Spawn food in random cave locations for fair distribution
+        const minDistanceFromSpawn = 10; // Minimum distance from any spawn point
+
         for (let i = 0; i < count; i++) {
             let x, y;
             let attempts = 0;
-            const maxAttempts = 100;
+            const maxAttempts = 200;
+            let validLocation = false;
 
-            // Find a cave tile to spawn food in
+            // Find a cave tile to spawn food in, away from all spawn points
             do {
                 x = 5 + Math.random() * (this.worldWidth - 10);
                 y = 10 + Math.random() * (this.worldHeight - 15);
                 attempts++;
-            } while (attempts < maxAttempts && !this.getTile(x, y)?.dug);
 
-            // If we found a valid cave location, spawn food there
-            if (this.getTile(x, y)?.dug) {
+                // Check if this is a cave tile
+                if (!this.getTile(x, y)?.dug) {
+                    continue;
+                }
+
+                // Check distance from all spawn locations
+                validLocation = true;
+                for (let spawn of this.spawnLocations) {
+                    const dx = spawn.x - x;
+                    const dy = spawn.y - y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < minDistanceFromSpawn) {
+                        validLocation = false;
+                        break;
+                    }
+                }
+            } while (attempts < maxAttempts && !validLocation);
+
+            // If we found a valid cave location away from spawns, spawn food there
+            if (validLocation) {
                 const amount = 50 + Math.floor(Math.random() * 100);
                 this.foodSources.push(new FoodSource(x, y, amount));
             }
@@ -225,6 +252,9 @@ class Game {
         for (let i = 0; i < count; i++) {
             const x = 10 + Math.random() * (this.worldWidth - 20);
             const y = 15 + Math.random() * (this.worldHeight - 25);
+
+            // Track this enemy nest spawn location
+            this.spawnLocations.push({ x: x, y: y });
 
             // Create a small chamber
             for (let dy = -2; dy <= 2; dy++) {
