@@ -742,11 +742,25 @@ class Game {
 
     spawnWorker() {
         if (this.queen) {
-            this.workers.push(new WorkerAnt(
-                this.queen.x + (Math.random() - 0.5),
-                this.queen.y + (Math.random() - 0.5),
-                false
-            ));
+            // Try to spawn in a valid location near queen
+            let spawnX = this.queen.x;
+            let spawnY = this.queen.y;
+
+            // Try a few random positions around the queen
+            for (let attempt = 0; attempt < 10; attempt++) {
+                const testX = this.queen.x + (Math.random() - 0.5) * 2;
+                const testY = this.queen.y + (Math.random() - 0.5) * 2;
+
+                if (this.canMove(testX, testY)) {
+                    spawnX = testX;
+                    spawnY = testY;
+                    break;
+                }
+            }
+
+            const newWorker = new WorkerAnt(spawnX, spawnY, false);
+            this.workers.push(newWorker);
+            console.log(`Worker spawned at (${spawnX.toFixed(1)}, ${spawnY.toFixed(1)})! Total workers: ${this.workers.length}`);
         }
     }
 }
@@ -1025,21 +1039,7 @@ class Ant {
             ctx.fillRect(barX, barY, barWidth * (this.health / this.maxHealth), barHeight);
         }
 
-        // Player indicator glow
-        if (this.isPlayer) {
-            const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
-            ctx.strokeStyle = `rgba(0, 255, 255, ${pulse})`;
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, size * 1.8, 0, Math.PI * 2);
-            ctx.stroke();
-
-            ctx.strokeStyle = `rgba(0, 255, 255, ${pulse * 0.5})`;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, size * 2.2, 0, Math.PI * 2);
-            ctx.stroke();
-        }
+        // Removed player indicator - only show when carrying food
     }
 }
 
@@ -1247,13 +1247,29 @@ class WorkerAnt extends Ant {
     render(ctx, camera, tileSize, game = null) {
         super.render(ctx, camera, tileSize, game);
 
-        // Draw food if carrying
+        // Green carrying indicator when holding food
         if (this.carryingFood) {
             const shakeX = game ? game.screenShake.x : 0;
             const shakeY = game ? game.screenShake.y : 0;
             const screenX = this.x * tileSize - camera.x + shakeX;
             const screenY = this.y * tileSize - camera.y + shakeY;
+            const size = this.size * tileSize;
 
+            // Green pulsing glow
+            const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+            ctx.strokeStyle = `rgba(0, 255, 0, ${pulse})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, size * 1.8, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.strokeStyle = `rgba(0, 255, 0, ${pulse * 0.5})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, size * 2.2, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Draw food dot
             ctx.fillStyle = '#ff0';
             ctx.beginPath();
             ctx.arc(screenX, screenY - tileSize * 0.3, 3, 0, Math.PI * 2);
@@ -1279,9 +1295,16 @@ class Queen extends Ant {
 
         // Spawn new workers if we have food
         if (this.spawnTimer >= this.spawnCooldown && game.colonyFood >= this.foodPerWorker) {
+            console.log(`Queen spawning worker! Food: ${game.colonyFood}, Timer: ${this.spawnTimer.toFixed(2)}s`);
             game.colonyFood -= this.foodPerWorker;
             game.spawnWorker();
             this.spawnTimer = 0;
+        } else if (game.colonyFood >= this.foodPerWorker) {
+            // Have food but timer not ready
+            if (Math.floor(this.spawnTimer) !== Math.floor(this.spawnTimer - dt)) {
+                // Log every second
+                console.log(`Waiting to spawn... Timer: ${this.spawnTimer.toFixed(1)}s / ${this.spawnCooldown}s, Food: ${game.colonyFood}/${this.foodPerWorker}`);
+            }
         }
     }
 
