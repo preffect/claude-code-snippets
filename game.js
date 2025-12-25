@@ -316,6 +316,9 @@ class Game {
             // Remove used spot to avoid overlap
             nestSpots.splice(nestSpots.indexOf(spot), 1);
         }
+
+        // Debug: log how many enemies we spawned
+        console.log(`Spawned ${this.enemies.length} enemy ants in ${Math.min(count, nestSpots.length)} nests`);
     }
 
     createColony() {
@@ -1228,12 +1231,14 @@ class WorkerAnt extends Ant {
             const dy = enemy.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist < 0.8) {
-                // Attack
+            if (dist < 1.2) {
+                // Attack - increased range
                 if (this.attackCooldown === 0) {
-                    enemy.takeDamage(10);
-                    this.attackCooldown = 1;
+                    enemy.takeDamage(15);
+                    this.attackCooldown = 0.5; // Faster attacks
                     game.spawnHitParticles(enemy.x, enemy.y);
+                    game.screenShake.intensity = 8;
+                    console.log(`Player attacked enemy! Enemy health: ${enemy.health}`);
                 }
             }
         }
@@ -1522,9 +1527,14 @@ class EnemyAnt extends Ant {
             this.moveTowards(nearest.x, nearest.y, dt, game);
 
             if (nearestDist < this.attackRange && this.attackCooldown === 0) {
-                nearest.takeDamage(5);
+                const damage = 8;
+                nearest.takeDamage(damage);
                 this.attackCooldown = 1;
                 game.spawnHitParticles(nearest.x, nearest.y);
+                game.screenShake.intensity = 10;
+                if (nearest === game.player) {
+                    console.log(`Enemy attacked player! Player health: ${nearest.health}`);
+                }
             }
         } else {
             // Patrol near nest
