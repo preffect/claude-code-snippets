@@ -90,6 +90,8 @@ body {
     border-radius: 8px;
     backdrop-filter: blur(5px);
     overflow: hidden;
+    max-width: 300px;
+    width: fit-content;
 }
 
 #factions-toggle {
@@ -114,12 +116,14 @@ body {
     max-height: 300px;
     overflow-y: auto;
     transition: max-height 0.3s ease, padding 0.3s ease;
+    pointer-events: auto;
 }
 
 #factions-content.collapsed {
     max-height: 0;
     padding: 0;
     overflow: hidden;
+    pointer-events: none;
 }
 
 .faction-item {
