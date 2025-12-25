@@ -42,8 +42,8 @@ class Game {
 
     setupCanvas() {
         const container = document.getElementById('game-container');
-        const maxWidth = window.innerWidth - 4;
-        const maxHeight = window.innerHeight - 4;
+        const maxWidth = window.innerWidth - 20;
+        const maxHeight = window.innerHeight - 20;
 
         // Maintain aspect ratio
         const aspectRatio = 16 / 9;
@@ -55,8 +55,9 @@ class Game {
             width = height * aspectRatio;
         }
 
-        this.canvas.width = Math.min(800, width);
-        this.canvas.height = Math.min(600, height);
+        // Much bigger max size for desktop!
+        this.canvas.width = Math.min(1600, width);
+        this.canvas.height = Math.min(900, height);
 
         window.addEventListener('resize', () => this.setupCanvas());
     }
@@ -446,7 +447,8 @@ class Game {
     }
 
     spawnDigParticles(x, y) {
-        for (let i = 0; i < 6; i++) {
+        // Reduced from 6 to 2 particles
+        for (let i = 0; i < 2; i++) {
             this.particles.push(new Particle(
                 x, y,
                 (Math.random() - 0.5) * 4,
@@ -459,9 +461,9 @@ class Game {
     }
 
     spawnDigBurst(x, y) {
-        // Main burst
-        for (let i = 0; i < 20; i++) {
-            const angle = (i / 20) * Math.PI * 2;
+        // Reduced from 20 to 8 particles
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
             const speed = 2 + Math.random() * 4;
             this.particles.push(new Particle(
                 x, y,
@@ -472,8 +474,8 @@ class Game {
                 8 + Math.random() * 6
             ));
         }
-        // Dust cloud
-        for (let i = 0; i < 10; i++) {
+        // Reduced from 10 to 3 dust clouds
+        for (let i = 0; i < 3; i++) {
             this.particles.push(new Particle(
                 x, y,
                 (Math.random() - 0.5) * 2,
@@ -487,8 +489,8 @@ class Game {
     }
 
     spawnFoodParticles(x, y) {
-        // Sparkle burst
-        for (let i = 0; i < 25; i++) {
+        // Reduced sparkle burst from 25 to 12
+        for (let i = 0; i < 12; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 1 + Math.random() * 3;
             const colors = ['#FFD700', '#FFA500', '#FFFF00', '#FFE135'];
@@ -502,10 +504,10 @@ class Game {
                 'sparkle'
             ));
         }
-        // Glow rings
-        for (let ring = 0; ring < 3; ring++) {
-            for (let i = 0; i < 12; i++) {
-                const angle = (i / 12) * Math.PI * 2;
+        // Reduced glow rings from 3 rings of 12 to 2 rings of 8
+        for (let ring = 0; ring < 2; ring++) {
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
                 const speed = 3 + ring * 1.5;
                 this.particles.push(new Particle(
                     x, y,
@@ -521,8 +523,8 @@ class Game {
     }
 
     spawnHitParticles(x, y) {
-        // Blood splatter effect
-        for (let i = 0; i < 15; i++) {
+        // Reduced blood splatter from 15 to 8
+        for (let i = 0; i < 8; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 3 + Math.random() * 4;
             const colors = ['#FF0000', '#FF4444', '#CC0000', '#FF6666'];
@@ -535,9 +537,9 @@ class Game {
                 8 + Math.random() * 6
             ));
         }
-        // Impact flash
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
+        // Reduced impact flash from 8 to 5
+        for (let i = 0; i < 5; i++) {
+            const angle = (i / 5) * Math.PI * 2;
             this.particles.push(new Particle(
                 x, y,
                 Math.cos(angle) * 5,
