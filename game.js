@@ -577,6 +577,13 @@ class Game {
         // Remove dead enemies
         this.enemies = this.enemies.filter(e => e.alive);
 
+        // Remove dead workers
+        const workersBefore = this.workers.length;
+        this.workers = this.workers.filter(w => w.alive);
+        if (this.workers.length < workersBefore) {
+            console.log(`Worker died! Remaining workers: ${this.workers.length}`);
+        }
+
         // Remove depleted food sources
         this.foodSources = this.foodSources.filter(f => f.amount > 0);
 
@@ -1804,7 +1811,7 @@ class EnemyAnt extends Ant {
         this.nestY = nestY;
         this.nestRadius = nestRadius;
         this.aggroRange = 5;
-        this.attackRange = 0.8;
+        this.attackRange = 1.2; // Increased from 0.8 for more reliable combat
         this.attackCooldown = 0;
         this.target = null;
         this.wanderTimer = 0;
@@ -1871,8 +1878,14 @@ class EnemyAnt extends Ant {
                 this.attackCooldown = 1;
                 game.spawnHitParticles(nearest.x, nearest.y);
                 game.screenShake.intensity = 10;
+
+                // Log attacks for debugging
                 if (nearest === game.player) {
                     console.log(`Enemy attacked player! Player health: ${nearest.health}`);
+                } else if (nearest === game.queen) {
+                    console.log(`Enemy attacked queen! Queen health: ${nearest.health}`);
+                } else {
+                    console.log(`Enemy attacked worker! Worker health: ${nearest.health}`);
                 }
             }
         } else {
