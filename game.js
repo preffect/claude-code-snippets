@@ -1408,7 +1408,7 @@ class WorkerAnt extends Ant {
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < 1.5 && food.amount > 0) {
-                    const taken = Math.min(10, food.amount);
+                    const taken = Math.min(15, food.amount); // Player can carry 15 food
                     food.amount -= taken;
                     this.foodAmount = taken;
                     this.carryingFood = true;
@@ -1510,7 +1510,7 @@ class WorkerAnt extends Ant {
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < 1 && this.targetFood.amount > 0) {
-                    const taken = Math.min(10, this.targetFood.amount);
+                    const taken = Math.min(5, this.targetFood.amount); // AI workers carry only 5 food
                     this.targetFood.amount -= taken;
                     this.foodAmount = taken;
                     this.carryingFood = true;
@@ -2149,7 +2149,7 @@ class EnemyAnt extends Ant {
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < 1.5 && this.targetFood.amount > 0) {
-                    const taken = Math.min(10, this.targetFood.amount);
+                    const taken = Math.min(5, this.targetFood.amount); // Enemy workers carry only 5 food
                     this.targetFood.amount -= taken;
                     this.foodAmount = taken;
                     this.carryingFood = true;
