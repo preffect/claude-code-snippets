@@ -234,6 +234,9 @@ class Game {
         // Spawn food sources in caves (increased for larger map)
         this.spawnFoodInCaves(20);
 
+        // Generate plants with food on grass level
+        this.generatePlants();
+
         // Spawn enemy nests in caves
         this.spawnEnemiesInCaves(4);
     }
@@ -636,6 +639,39 @@ class Game {
         console.log(`Spawned ${this.colonies.length} total colonies (${count} enemy factions)`);
     }
 
+    generatePlants() {
+        // Generate plants growing from grass level upward
+        const plantCount = 15 + Math.floor(Math.random() * 10); // 15-25 plants
+
+        for (let i = 0; i < plantCount; i++) {
+            // Random x position, avoid edges
+            const x = 10 + Math.floor(Math.random() * (this.worldWidth - 20));
+
+            // Plants grow from grass level (y=9)
+            const baseY = 9;
+
+            // Random height (3-6 tiles tall)
+            const height = 3 + Math.floor(Math.random() * 4);
+
+            // Create plant stem going upward
+            for (let h = 0; h < height; h++) {
+                const y = baseY - h;
+                if (this.isValidTile(x, y) && y >= 2) { // Don't go past top
+                    this.tiles[y][x] = { type: 'plant', dug: true };
+                }
+            }
+
+            // Add food at the top of the plant (30-80 food)
+            const topY = baseY - height + 1;
+            if (topY >= 2) {
+                const foodAmount = 30 + Math.floor(Math.random() * 51);
+                this.foodSources.push(new FoodSource(x + 0.5, topY + 0.3, foodAmount));
+            }
+        }
+
+        console.log(`Generated ${plantCount} plants with food`);
+    }
+
     createColony() {
         const startX = this.worldWidth / 2;
         const startY = 12;
@@ -926,6 +962,46 @@ class Game {
                 this.ctx.fillStyle = `rgba(20, 80, 20, 0.3)`;
                 this.ctx.fillRect(screenX + noiseX, screenY + noiseY, 2, 2);
             }
+        } else if (tile.type === 'plant') {
+            // Sky background for plant tiles
+            const variation = (x * 13 + y * 17) % 15;
+            const lightness = 180 + variation;
+            this.ctx.fillStyle = `rgb(${lightness}, ${lightness + 10}, ${lightness + 20})`;
+            this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+
+            // Plant stem - brown/woody
+            const stemWidth = this.tileSize * 0.3;
+            const stemX = screenX + (this.tileSize - stemWidth) / 2;
+
+            // Stem gradient (brown)
+            const gradient = this.ctx.createLinearGradient(stemX, screenY, stemX + stemWidth, screenY);
+            gradient.addColorStop(0, '#654321');
+            gradient.addColorStop(0.5, '#8B4513');
+            gradient.addColorStop(1, '#654321');
+            this.ctx.fillStyle = gradient;
+            this.ctx.fillRect(stemX, screenY, stemWidth, this.tileSize);
+
+            // Leaves on sides - green
+            const leafSize = this.tileSize * 0.25;
+            const seed = x * 73 + y * 37;
+
+            // Left leaf
+            if ((seed + y) % 2 === 0) {
+                this.ctx.fillStyle = '#228B22';
+                this.ctx.beginPath();
+                this.ctx.ellipse(stemX - leafSize/2, screenY + this.tileSize/2,
+                    leafSize, leafSize * 0.6, -Math.PI/6, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+
+            // Right leaf
+            if ((seed + y + 1) % 2 === 0) {
+                this.ctx.fillStyle = '#228B22';
+                this.ctx.beginPath();
+                this.ctx.ellipse(stemX + stemWidth + leafSize/2, screenY + this.tileSize/2,
+                    leafSize, leafSize * 0.6, Math.PI/6, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
         } else if (tile.dug || tile.type === 'air') {
             // Air/dug tunnel - light gray background for visibility
             const variation = (x * 13 + y * 17) % 15;
@@ -1007,7 +1083,7 @@ class Game {
 
     canMove(x, y) {
         const tile = this.getTile(x, y);
-        return tile && (tile.dug || tile.type === 'air' || tile.type === 'grass');
+        return tile && (tile.dug || tile.type === 'air' || tile.type === 'grass' || tile.type === 'plant');
     }
 
     digTile(x, y, digPower = 1) {
@@ -1591,11 +1667,15 @@ class WorkerAnt extends Ant {
             const newX = this.x + input.x * this.speed * dt;
             const newY = this.y + input.y * this.speed * dt;
 
-            // Ants can't fly - prevent movement above grass level (y < 8)
-            if (newY >= 8 && game.canMove(newX, newY)) {
+            // Check if target is a plant (ants can climb plants but not fly in open air)
+            const targetTile = game.getTile(newX, newY);
+            const canClimbHere = targetTile && targetTile.type === 'plant';
+
+            // Ants can't fly - prevent movement above grass level (y < 8) unless on a plant
+            if ((newY >= 8 || canClimbHere) && game.canMove(newX, newY)) {
                 this.x = newX;
                 this.y = newY;
-            } else if (newY < 8) {
+            } else if (newY < 8 && !canClimbHere) {
                 // Can't move into air - do nothing
             } else {
                 // Blocked - try digging
@@ -1763,8 +1843,12 @@ class WorkerAnt extends Ant {
             const newX = this.x + dirX * this.speed * dt;
             const newY = this.y + dirY * this.speed * dt;
 
-            // Ants can't fly - prevent movement above grass level (y < 8)
-            if (newY < 8) {
+            // Check if target is a plant (ants can climb plants but not fly in open air)
+            const targetTile = game.getTile(newX, newY);
+            const canClimbHere = targetTile && targetTile.type === 'plant';
+
+            // Ants can't fly - prevent movement above grass level (y < 8) unless on a plant
+            if (newY < 8 && !canClimbHere) {
                 return;
             }
 
@@ -2468,8 +2552,12 @@ class EnemyAnt extends Ant {
             const newX = this.x + dirX * this.speed * dt;
             const newY = this.y + dirY * this.speed * dt;
 
-            // Ants can't fly - prevent movement above grass level (y < 8)
-            if (newY < 8) {
+            // Check if target is a plant (ants can climb plants but not fly in open air)
+            const targetTile = game.getTile(newX, newY);
+            const canClimbHere = targetTile && targetTile.type === 'plant';
+
+            // Ants can't fly - prevent movement above grass level (y < 8) unless on a plant
+            if (newY < 8 && !canClimbHere) {
                 return;
             }
 
