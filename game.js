@@ -200,12 +200,24 @@ class Game {
     }
 
     spawnFoodSources(count) {
+        // Spawn food in random cave locations for fair distribution
         for (let i = 0; i < count; i++) {
-            const x = Math.random() * this.worldWidth;
-            const y = 8 + Math.random() * (this.worldHeight - 15);
-            const amount = 50 + Math.floor(Math.random() * 100);
+            let x, y;
+            let attempts = 0;
+            const maxAttempts = 100;
 
-            this.foodSources.push(new FoodSource(x, y, amount));
+            // Find a cave tile to spawn food in
+            do {
+                x = 5 + Math.random() * (this.worldWidth - 10);
+                y = 10 + Math.random() * (this.worldHeight - 15);
+                attempts++;
+            } while (attempts < maxAttempts && !this.getTile(x, y)?.dug);
+
+            // If we found a valid cave location, spawn food there
+            if (this.getTile(x, y)?.dug) {
+                const amount = 50 + Math.floor(Math.random() * 100);
+                this.foodSources.push(new FoodSource(x, y, amount));
+            }
         }
     }
 
