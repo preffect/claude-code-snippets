@@ -36,28 +36,38 @@ class Game {
         // Input
         this.keys = {};
         this.joystick = new Joystick();
+        this.joystick.game = this; // Connect joystick to game
 
         this.init();
     }
 
     setupCanvas() {
         const container = document.getElementById('game-container');
-        const maxWidth = window.innerWidth - 20;
-        const maxHeight = window.innerHeight - 20;
 
-        // Maintain aspect ratio
-        const aspectRatio = 16 / 9;
-        let width = maxWidth;
-        let height = width / aspectRatio;
+        // Detect if mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+                         || window.innerWidth < 768;
 
-        if (height > maxHeight) {
-            height = maxHeight;
-            width = height * aspectRatio;
+        if (isMobile) {
+            // Full viewport on mobile - no padding
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+        } else {
+            // Desktop: maintain aspect ratio with some padding
+            const maxWidth = window.innerWidth - 20;
+            const maxHeight = window.innerHeight - 20;
+            const aspectRatio = 16 / 9;
+            let width = maxWidth;
+            let height = width / aspectRatio;
+
+            if (height > maxHeight) {
+                height = maxHeight;
+                width = height * aspectRatio;
+            }
+
+            this.canvas.width = Math.min(1600, width);
+            this.canvas.height = Math.min(900, height);
         }
-
-        // Much bigger max size for desktop!
-        this.canvas.width = Math.min(1600, width);
-        this.canvas.height = Math.min(900, height);
 
         window.addEventListener('resize', () => this.setupCanvas());
     }
@@ -737,40 +747,63 @@ class Joystick {
         this.active = false;
         this.x = 0;
         this.y = 0;
+        this.touchX = 0;
+        this.touchY = 0;
+        this.canvas = document.getElementById('gameCanvas');
+        this.game = null; // Will be set by game
 
         this.setupEvents();
     }
 
     setupEvents() {
-        const startTouch = (e) => {
-            e.preventDefault();
-            this.active = true;
-        };
-
-        const moveTouch = (e) => {
+        // Touch-anywhere controls for mobile
+        const handleTouch = (e) => {
             if (!this.active) return;
             e.preventDefault();
 
             const touch = e.touches[0];
-            const rect = this.base.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
+            this.touchX = touch.clientX;
+            this.touchY = touch.clientY;
 
-            let dx = touch.clientX - centerX;
-            let dy = touch.clientY - centerY;
+            // Calculate direction to touch point from player position
+            if (this.game && this.game.player) {
+                const canvas = this.canvas;
+                const camera = this.game.camera;
+                const tileSize = this.game.tileSize;
 
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const maxDistance = rect.width / 2 - 10;
+                // Convert player world position to screen position
+                const playerScreenX = this.game.player.x * tileSize - camera.x + this.game.screenShake.x;
+                const playerScreenY = this.game.player.y * tileSize - camera.y + this.game.screenShake.y;
 
-            if (distance > maxDistance) {
-                dx = dx / distance * maxDistance;
-                dy = dy / distance * maxDistance;
+                // Calculate direction from player to touch
+                const dx = this.touchX - playerScreenX;
+                const dy = this.touchY - playerScreenY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist > 10) { // Minimum distance threshold
+                    this.x = dx / dist;
+                    this.y = dy / dist;
+
+                    // Move joystick visual to touch position
+                    this.base.style.left = `${this.touchX - 60}px`;
+                    this.base.style.top = `${this.touchY - 60}px`;
+                    this.base.style.opacity = '0.6';
+
+                    // Move stick to show direction
+                    const stickDx = (dx / dist) * 35;
+                    const stickDy = (dy / dist) * 35;
+                    this.stick.style.transform = `translate(calc(-50% + ${stickDx}px), calc(-50% + ${stickDy}px))`;
+                } else {
+                    this.x = 0;
+                    this.y = 0;
+                }
             }
+        };
 
-            this.x = dx / maxDistance;
-            this.y = dy / maxDistance;
-
-            this.stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        const startTouch = (e) => {
+            e.preventDefault();
+            this.active = true;
+            handleTouch(e);
         };
 
         const endTouch = (e) => {
@@ -779,40 +812,60 @@ class Joystick {
             this.x = 0;
             this.y = 0;
             this.stick.style.transform = 'translate(-50%, -50%)';
+            this.base.style.left = '20px';
+            this.base.style.top = '';
+            this.base.style.bottom = '20px';
+            this.base.style.opacity = '0.4';
         };
 
-        this.base.addEventListener('touchstart', startTouch);
-        this.base.addEventListener('touchmove', moveTouch);
-        this.base.addEventListener('touchend', endTouch);
+        // Touch events on entire canvas for mobile
+        this.canvas.addEventListener('touchstart', startTouch);
+        this.canvas.addEventListener('touchmove', handleTouch);
+        this.canvas.addEventListener('touchend', endTouch);
+        this.canvas.addEventListener('touchcancel', endTouch);
 
-        // Mouse events for testing on desktop
-        this.base.addEventListener('mousedown', (e) => {
+        // Mouse events for desktop testing
+        this.canvas.addEventListener('mousedown', (e) => {
             e.preventDefault();
             this.active = true;
+            this.touchX = e.clientX;
+            this.touchY = e.clientY;
         });
 
         window.addEventListener('mousemove', (e) => {
             if (!this.active) return;
 
-            const rect = this.base.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
+            this.touchX = e.clientX;
+            this.touchY = e.clientY;
 
-            let dx = e.clientX - centerX;
-            let dy = e.clientY - centerY;
+            // Same logic as touch
+            if (this.game && this.game.player) {
+                const camera = this.game.camera;
+                const tileSize = this.game.tileSize;
 
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const maxDistance = rect.width / 2 - 10;
+                const playerScreenX = this.game.player.x * tileSize - camera.x + this.game.screenShake.x;
+                const playerScreenY = this.game.player.y * tileSize - camera.y + this.game.screenShake.y;
 
-            if (distance > maxDistance) {
-                dx = dx / distance * maxDistance;
-                dy = dy / distance * maxDistance;
+                const dx = this.touchX - playerScreenX;
+                const dy = this.touchY - playerScreenY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist > 10) {
+                    this.x = dx / dist;
+                    this.y = dy / dist;
+
+                    this.base.style.left = `${this.touchX - 60}px`;
+                    this.base.style.top = `${this.touchY - 60}px`;
+                    this.base.style.opacity = '0.6';
+
+                    const stickDx = (dx / dist) * 35;
+                    const stickDy = (dy / dist) * 35;
+                    this.stick.style.transform = `translate(calc(-50% + ${stickDx}px), calc(-50% + ${stickDy}px))`;
+                } else {
+                    this.x = 0;
+                    this.y = 0;
+                }
             }
-
-            this.x = dx / maxDistance;
-            this.y = dy / maxDistance;
-
-            this.stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
         });
 
         window.addEventListener('mouseup', endTouch);
