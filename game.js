@@ -1708,10 +1708,14 @@ class WorkerAnt extends Ant {
         const workerDamage = this.isPlayer ? 30 : 15;
         const queenDamage = this.isPlayer ? 20 : 10;
 
-        if (this.isPlayer && Math.random() < 0.01) {
-            console.log('[PLAYER COMBAT] attackCooldown:', this.attackCooldown);
-            console.log('[PLAYER COMBAT] game.enemies:', game.enemies ? game.enemies.length : 'undefined');
-            console.log('[PLAYER COMBAT] game.colonies:', game.colonies.length);
+        if (this.isPlayer) {
+            console.log('[COMBAT CALLED] cooldown:', this.attackCooldown.toFixed(3));
+            console.log('[COMBAT] enemies:', game.enemies ? game.enemies.length : 'UNDEF', 'colonies:', game.colonies.length);
+            if (this.colony) {
+                console.log('[COMBAT] colony faction:', this.colony.factionId);
+            } else {
+                console.log('[COMBAT] NO COLONY!');
+            }
         }
 
         // Check enemy ants (EnemyAnt instances stored in game.enemies)
