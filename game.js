@@ -1506,8 +1506,9 @@ class WorkerAnt extends Ant {
     update(dt, input, game) {
         if (!this.alive) return;
 
-        this.digCooldown = Math.max(0, this.digCooldown - dt);
-        this.attackCooldown = Math.max(0, this.attackCooldown - dt);
+        // Ensure cooldowns are always valid numbers
+        this.digCooldown = Math.max(0, (this.digCooldown || 0) - dt);
+        this.attackCooldown = Math.max(0, (this.attackCooldown || 0) - dt);
         this.stateTimer -= dt;
 
         if (this.isPlayer) {
@@ -1706,6 +1707,11 @@ class WorkerAnt extends Ant {
     }
 
     checkCombat(dt, game) {
+        // Ensure attackCooldown is a valid number
+        if (typeof this.attackCooldown !== 'number' || isNaN(this.attackCooldown)) {
+            this.attackCooldown = 0;
+        }
+
         // Attack workers and queens from other factions
         // Player deals 2x damage
         const workerDamage = this.isPlayer ? 30 : 15;
@@ -1720,7 +1726,7 @@ class WorkerAnt extends Ant {
                 const dy = enemy.y - this.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
-                if (dist < 1.5 && this.attackCooldown === 0) {
+                if (dist < 1.5 && this.attackCooldown <= 0) {
                     enemy.takeDamage(workerDamage, game);
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(enemy.x, enemy.y);
@@ -1743,11 +1749,13 @@ class WorkerAnt extends Ant {
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (this.isPlayer && dist < 3) {
-                    console.log('[PLAYER] WorkerAnt nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2));
+                    console.log('[PLAYER] WorkerAnt nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2), 'colony:', this.colony ? this.colony.factionId : 'NO COLONY');
                 }
 
                 if (dist < 1.5 && this.attackCooldown <= 0) {
-                    console.log('[PLAYER] ATTACKING WORKER ANT!!!');
+                    if (this.isPlayer) {
+                        console.log('[PLAYER] ATTACKING WORKER ANT!!!');
+                    }
                     enemy.takeDamage(workerDamage, game);
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(enemy.x, enemy.y);
@@ -1763,11 +1771,13 @@ class WorkerAnt extends Ant {
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (this.isPlayer && dist < 3) {
-                    console.log('[PLAYER] Queen nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2));
+                    console.log('[PLAYER] Queen nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2), 'colony:', this.colony ? this.colony.factionId : 'NO COLONY');
                 }
 
                 if (dist < 1.5 && this.attackCooldown <= 0) {
-                    console.log('[PLAYER] ATTACKING QUEEN!!!');
+                    if (this.isPlayer) {
+                        console.log('[PLAYER] ATTACKING QUEEN!!!');
+                    }
                     colony.queen.takeDamage(queenDamage, game);
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(colony.queen.x, colony.queen.y);
@@ -2209,7 +2219,8 @@ class EnemyAnt extends Ant {
     update(dt, input, game) {
         if (!this.alive) return;
 
-        this.attackCooldown = Math.max(0, this.attackCooldown - dt);
+        // Ensure attackCooldown is a valid number
+        this.attackCooldown = Math.max(0, (this.attackCooldown || 0) - dt);
         this.wanderTimer -= dt;
 
         // Enemy worker AI: prioritize fighting over food gathering
@@ -2275,7 +2286,7 @@ class EnemyAnt extends Ant {
             const dy = nearest.y - this.y;
             const currentDist = Math.sqrt(dx * dx + dy * dy);
 
-            if (currentDist < this.attackRange && this.attackCooldown === 0) {
+            if (currentDist < this.attackRange && this.attackCooldown <= 0) {
                 const damage = 8;
                 nearest.takeDamage(damage, game);
                 this.attackCooldown = 1;
