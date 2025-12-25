@@ -2037,6 +2037,11 @@ class EnemyAnt extends Ant {
             const dy = game.player.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
+            // Debug: log distance to player when very close
+            if (dist < 3 && Math.random() < 0.02) {
+                console.log(`Enemy near player! Distance: ${dist.toFixed(2)}, Aggro range: ${this.aggroRange}, Cooldown: ${this.attackCooldown.toFixed(2)}`);
+            }
+
             if (dist < this.aggroRange && dist < nearestDist) {
                 nearestDist = dist;
                 nearest = game.player;
@@ -2086,7 +2091,12 @@ class EnemyAnt extends Ant {
 
             this.moveTowards(nearest.x, nearest.y, dt, game);
 
-            if (nearestDist < this.attackRange && this.attackCooldown === 0) {
+            // Recalculate distance after moving to check for attack
+            const dx = nearest.x - this.x;
+            const dy = nearest.y - this.y;
+            const currentDist = Math.sqrt(dx * dx + dy * dy);
+
+            if (currentDist < this.attackRange && this.attackCooldown === 0) {
                 const damage = 8;
                 const healthBefore = nearest.health;
                 nearest.takeDamage(damage);
