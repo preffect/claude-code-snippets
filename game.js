@@ -745,9 +745,16 @@ class Game {
     }
 
     updateUI() {
-        document.getElementById('food-count').textContent = this.colonyFood;
-        document.getElementById('worker-count').textContent =
-            1 + this.workers.length; // +1 for player
+        // Get player's colony
+        const playerColony = this.colonies.find(c => c.isPlayer);
+
+        // Update food count (player's colony food)
+        document.getElementById('food-count').textContent = playerColony ? playerColony.food : 0;
+
+        // Update worker count (player's colony workers)
+        document.getElementById('worker-count').textContent = playerColony ? playerColony.workers.length : 0;
+
+        // Update player health
         document.getElementById('health').textContent =
             this.player ? Math.ceil(this.player.health) : 0;
     }
