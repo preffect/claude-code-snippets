@@ -1570,9 +1570,12 @@ class WorkerAnt extends Ant {
             const newX = this.x + input.x * this.speed * dt;
             const newY = this.y + input.y * this.speed * dt;
 
-            if (game.canMove(newX, newY)) {
+            // Ants can't fly - prevent movement above grass level (y < 8)
+            if (newY >= 8 && game.canMove(newX, newY)) {
                 this.x = newX;
                 this.y = newY;
+            } else if (newY < 8) {
+                // Can't move into air - do nothing
             } else {
                 // Blocked - try digging
                 // For diagonal movement, dig both X and Y blocking tiles
@@ -1731,6 +1734,11 @@ class WorkerAnt extends Ant {
 
             const newX = this.x + dirX * this.speed * dt;
             const newY = this.y + dirY * this.speed * dt;
+
+            // Ants can't fly - prevent movement above grass level (y < 8)
+            if (newY < 8) {
+                return;
+            }
 
             if (game.canMove(newX, newY)) {
                 this.x = newX;
@@ -2424,6 +2432,11 @@ class EnemyAnt extends Ant {
 
             const newX = this.x + dirX * this.speed * dt;
             const newY = this.y + dirY * this.speed * dt;
+
+            // Ants can't fly - prevent movement above grass level (y < 8)
+            if (newY < 8) {
+                return;
+            }
 
             if (game.canMove(newX, newY)) {
                 this.x = newX;
