@@ -1675,11 +1675,14 @@ class WorkerAnt extends Ant {
             const newX = this.x + input.x * this.speed * dt;
             const newY = this.y + input.y * this.speed * dt;
 
-            // Ants can't fly - prevent movement above grass level (y < 8)
-            if (newY >= 8 && game.canMove(newX, newY)) {
+            // Ants can't fly - prevent movement above grass level (y < 8) unless climbing a plant
+            const targetTile = game.getTile(newX, newY);
+            const isClimbingPlant = newY < 8 && targetTile && targetTile.type === 'plant';
+
+            if ((newY >= 8 || isClimbingPlant) && game.canMove(newX, newY)) {
                 this.x = newX;
                 this.y = newY;
-            } else if (newY < 8) {
+            } else if (newY < 8 && !isClimbingPlant) {
                 // Can't move into air - do nothing
             } else {
                 // Blocked - try digging
@@ -1847,8 +1850,10 @@ class WorkerAnt extends Ant {
             const newX = this.x + dirX * this.speed * dt;
             const newY = this.y + dirY * this.speed * dt;
 
-            // Ants can't fly - prevent movement above grass level (y < 8)
-            if (newY < 8) {
+            // Ants can't fly - prevent movement above grass level (y < 8) unless climbing a plant
+            const targetTile = game.getTile(newX, newY);
+            const isClimbingPlant = targetTile && targetTile.type === 'plant';
+            if (newY < 8 && !isClimbingPlant) {
                 return;
             }
 
@@ -2552,8 +2557,10 @@ class EnemyAnt extends Ant {
             const newX = this.x + dirX * this.speed * dt;
             const newY = this.y + dirY * this.speed * dt;
 
-            // Ants can't fly - prevent movement above grass level (y < 8)
-            if (newY < 8) {
+            // Ants can't fly - prevent movement above grass level (y < 8) unless climbing a plant
+            const targetTile = game.getTile(newX, newY);
+            const isClimbingPlant = targetTile && targetTile.type === 'plant';
+            if (newY < 8 && !isClimbingPlant) {
                 return;
             }
 
