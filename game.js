@@ -1520,8 +1520,15 @@ class WorkerAnt extends Ant {
                 this.x = newX;
                 this.y = newY;
             } else {
-                // Try to dig - fast digging for AI too
-                game.digTile(this.x + dirX * 0.5, this.y + dirY * 0.5, dt * 8);
+                // Blocked - dig to clear path
+                // For diagonal movement, dig both X and Y directions
+                if (Math.abs(dirX) > 0.1 && Math.abs(dirY) > 0.1) {
+                    // Diagonal - dig both directions to prevent getting stuck
+                    game.digTile(this.x + dirX * 0.6, this.y, dt * 8);
+                    game.digTile(this.x, this.y + dirY * 0.6, dt * 8);
+                }
+                // Always dig in the movement direction
+                game.digTile(this.x + dirX * 0.6, this.y + dirY * 0.6, dt * 10);
             }
         }
     }
