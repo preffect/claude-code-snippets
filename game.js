@@ -1727,7 +1727,7 @@ class WorkerAnt extends Ant {
                     console.log('[PLAYER] EnemyAnt nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2));
                 }
 
-                if (dist < 1.5 && this.attackCooldown === 0) {
+                if (dist < 1.5 && this.attackCooldown <= 0) {
                     console.log('[PLAYER] ATTACKING ENEMY ANT!!!');
                     enemy.takeDamage(workerDamage, game);
                     this.attackCooldown = 0.5;
@@ -1754,7 +1754,7 @@ class WorkerAnt extends Ant {
                     console.log('[PLAYER] WorkerAnt nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2));
                 }
 
-                if (dist < 1.5 && this.attackCooldown === 0) {
+                if (dist < 1.5 && this.attackCooldown <= 0) {
                     console.log('[PLAYER] ATTACKING WORKER ANT!!!');
                     enemy.takeDamage(workerDamage, game);
                     this.attackCooldown = 0.5;
@@ -1774,7 +1774,7 @@ class WorkerAnt extends Ant {
                     console.log('[PLAYER] Queen nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2));
                 }
 
-                if (dist < 1.5 && this.attackCooldown === 0) {
+                if (dist < 1.5 && this.attackCooldown <= 0) {
                     console.log('[PLAYER] ATTACKING QUEEN!!!');
                     colony.queen.takeDamage(queenDamage, game);
                     this.attackCooldown = 0.5;
