@@ -1,6 +1,91 @@
 // Ant Colony Game
 // A mobile-friendly game where you play as a worker ant building and defending your colony
 
+class Colony {
+    constructor(factionId, queenX, queenY, isPlayer = false) {
+        this.factionId = factionId; // Unique faction identifier
+        this.isPlayer = isPlayer;
+        this.queen = null;
+        this.workers = [];
+        this.food = 0;
+
+        // Assign colors based on faction
+        const colors = [
+            { worker: '#8B4513', queen: '#4a2a0a', name: 'Brown' }, // Player - brown
+            { worker: '#FF0000', queen: '#8B0000', name: 'Red' },    // Enemy 1 - red
+            { worker: '#FF6600', queen: '#CC5200', name: 'Orange' }, // Enemy 2 - orange
+            { worker: '#CC00CC', queen: '#990099', name: 'Purple' }, // Enemy 3 - purple
+            { worker: '#00CCCC', queen: '#008B8B', name: 'Cyan' }    // Enemy 4 - cyan
+        ];
+
+        this.colors = colors[factionId % colors.length];
+        this.queenX = queenX;
+        this.queenY = queenY;
+    }
+
+    createQueen(x, y) {
+        this.queen = new Queen(x, y, this);
+        this.queen.color = this.colors.queen;
+        return this.queen;
+    }
+
+    addWorker(worker) {
+        worker.colony = this;
+        worker.color = this.colors.worker;
+        this.workers.push(worker);
+    }
+
+    spawnWorker(game) {
+        if (!this.queen || !this.queen.alive) return;
+
+        // Try to spawn in a valid location near queen
+        let spawnX = this.queen.x;
+        let spawnY = this.queen.y;
+
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const testX = this.queen.x + (Math.random() - 0.5) * 2;
+            const testY = this.queen.y + (Math.random() - 0.5) * 2;
+
+            if (game.canMove(testX, testY)) {
+                spawnX = testX;
+                spawnY = testY;
+                break;
+            }
+        }
+
+        const newWorker = new WorkerAnt(spawnX, spawnY, false);
+        this.addWorker(newWorker);
+        console.log(`${this.colors.name} colony spawned worker! Total: ${this.workers.length}`);
+    }
+
+    update(dt, game) {
+        // Update queen
+        if (this.queen && this.queen.alive) {
+            this.queen.update(dt, game);
+        }
+
+        // Update workers
+        this.workers.forEach(worker => worker.update(dt, {}, game));
+
+        // Remove dead workers
+        const before = this.workers.length;
+        this.workers = this.workers.filter(w => w.alive);
+        if (this.workers.length < before) {
+            console.log(`${this.colors.name} worker died! Remaining: ${this.workers.length}`);
+        }
+    }
+
+    render(ctx, camera, tileSize, game) {
+        // Render queen
+        if (this.queen && this.queen.alive) {
+            this.queen.render(ctx, camera, tileSize, game);
+        }
+
+        // Render workers
+        this.workers.forEach(worker => worker.render(ctx, camera, tileSize, game));
+    }
+}
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -22,12 +107,8 @@ class Game {
 
         // Game objects
         this.player = null;
-        this.queen = null;
-        this.workers = [];
-        this.enemies = [];
-        this.enemyQueens = [];
+        this.colonies = []; // Array of Colony objects (player colony + enemy colonies)
         this.foodSources = [];
-        this.colonyFood = 0;
 
         // Visual effects
         this.particles = [];
@@ -479,41 +560,47 @@ class Game {
             }
         }
 
-        // Spawn enemy queens with workers in random nest spots
+        // Spawn enemy colonies with different factions
         for (let i = 0; i < Math.min(count, nestSpots.length); i++) {
             const spot = nestSpots[Math.floor(Math.random() * nestSpots.length)];
 
-            // Spawn enemy queen
-            const enemyQueen = new EnemyQueen(spot.x, spot.y);
-            this.enemyQueens.push(enemyQueen);
+            // Create enemy colony (faction 1, 2, 3, etc.)
+            const factionId = i + 1; // Player is faction 0, enemies are 1+
+            const enemyColony = new Colony(factionId, spot.x, spot.y, false);
+            enemyColony.createQueen(spot.x, spot.y);
+            this.colonies.push(enemyColony);
 
-            // Spawn 2-4 enemy worker ants per nest
-            const enemyCount = 2 + Math.floor(Math.random() * 3);
-            for (let j = 0; j < enemyCount; j++) {
-                this.enemies.push(new EnemyAnt(
+            // Spawn 2-4 workers for this colony
+            const workerCount = 2 + Math.floor(Math.random() * 3);
+            for (let j = 0; j < workerCount; j++) {
+                const worker = new WorkerAnt(
                     spot.x + (Math.random() - 0.5) * 4,
                     spot.y + (Math.random() - 0.5) * 4,
-                    enemyQueen
-                ));
+                    false
+                );
+                enemyColony.addWorker(worker);
             }
 
             // Remove used spot to avoid overlap
             nestSpots.splice(nestSpots.indexOf(spot), 1);
         }
 
-        // Debug: log how many enemies we spawned
-        console.log(`Spawned ${this.enemyQueens.length} enemy queens with ${this.enemies.length} worker ants total`);
+        // Debug: log how many colonies we spawned
+        console.log(`Spawned ${this.colonies.length} total colonies (${count} enemy factions)`);
     }
 
     createColony() {
         const startX = this.worldWidth / 2;
         const startY = 12;
 
-        // Create queen
-        this.queen = new Queen(startX, startY);
+        // Create player colony (faction 0)
+        const playerColony = new Colony(0, startX, startY, true);
+        playerColony.createQueen(startX, startY);
+        this.colonies.push(playerColony);
 
         // Create player-controlled worker
         this.player = new WorkerAnt(startX + 1, startY, true);
+        playerColony.addWorker(this.player);
 
         // Camera follows player
         this.updateCamera();
@@ -568,34 +655,19 @@ class Game {
             alert('Your ant died! Game Over. Refresh to play again.');
         }
 
-        // Update queen and check if dead
-        if (this.queen) {
-            this.queen.update(dt, this);
-            if (!this.queen.alive || this.queen.health <= 0) {
+        // Update all colonies
+        for (const colony of this.colonies) {
+            colony.update(dt, this);
+
+            // Check if player's queen died
+            if (colony.isPlayer && colony.queen && (!colony.queen.alive || colony.queen.health <= 0)) {
                 this.running = false;
                 alert('Your Queen died! Game Over. Refresh to play again.');
             }
         }
 
-        // Update AI workers
-        this.workers.forEach(worker => worker.update(dt, {}, this));
-
-        // Update enemy queens
-        this.enemyQueens.forEach(queen => queen.update(dt, this));
-
-        // Update enemies
-        this.enemies.forEach(enemy => enemy.update(dt, {}, this));
-
-        // Remove dead enemies and queens
-        this.enemies = this.enemies.filter(e => e.alive);
-        this.enemyQueens = this.enemyQueens.filter(q => q.alive);
-
-        // Remove dead workers
-        const workersBefore = this.workers.length;
-        this.workers = this.workers.filter(w => w.alive);
-        if (this.workers.length < workersBefore) {
-            console.log(`Worker died! Remaining workers: ${this.workers.length}`);
-        }
+        // Remove dead colonies (no queen)
+        this.colonies = this.colonies.filter(c => c.queen && c.queen.alive);
 
         // Remove depleted food sources
         this.foodSources = this.foodSources.filter(f => f.amount > 0);
@@ -700,21 +772,10 @@ class Game {
         // Render food sources
         this.foodSources.forEach(food => food.render(ctx, this.camera, this.tileSize));
 
-        // Render queen
-        if (this.queen) {
-            this.queen.render(ctx, this.camera, this.tileSize, this);
-        }
+        // Render all colonies
+        this.colonies.forEach(colony => colony.render(ctx, this.camera, this.tileSize, this));
 
-        // Render enemy queens
-        this.enemyQueens.forEach(queen => queen.render(ctx, this.camera, this.tileSize, this));
-
-        // Render workers
-        this.workers.forEach(worker => worker.render(ctx, this.camera, this.tileSize, this));
-
-        // Render enemies
-        this.enemies.forEach(enemy => enemy.render(ctx, this.camera, this.tileSize, this));
-
-        // Render player
+        // Render player on top
         if (this.player) {
             this.player.render(ctx, this.camera, this.tileSize, this);
         }
@@ -1391,17 +1452,17 @@ class WorkerAnt extends Ant {
         }
 
         // Deliver food to queen
-        if (this.carryingFood && game.queen) {
-            const dx = game.queen.x - this.x;
-            const dy = game.queen.y - this.y;
+        if (this.carryingFood && this.colony && this.colony.queen) {
+            const dx = this.colony.queen.x - this.x;
+            const dy = this.colony.queen.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             if (dist < 2.5) {
-                game.addFood(this.foodAmount);
+                this.colony.food += this.foodAmount;
                 this.foodAmount = 0;
                 this.carryingFood = false;
                 // Show delivery feedback particles
-                game.spawnFoodParticles(game.queen.x, game.queen.y);
+                game.spawnFoodParticles(this.colony.queen.x, this.colony.queen.y);
             }
         }
     }
@@ -1412,43 +1473,47 @@ class WorkerAnt extends Ant {
             // Return to queen using pathfinding
             this.pathRecalcTimer -= dt;
 
-            // Calculate or recalculate path
-            if (!this.path || this.pathRecalcTimer <= 0) {
-                this.path = game.findPath(this.x, this.y, game.queen.x, game.queen.y);
-                this.pathIndex = 0;
-                this.pathRecalcTimer = 2; // Recalc every 2 seconds
-            }
-
-            // Follow path if we have one
-            if (this.path && this.pathIndex < this.path.length) {
-                const target = this.path[this.pathIndex];
-                this.moveTowards(target.x, target.y, dt, game);
-
-                // Move to next waypoint if close enough
-                const dx = target.x - this.x;
-                const dy = target.y - this.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 0.5) {
-                    this.pathIndex++;
+            // Calculate or recalculate path to queen
+            if (this.colony && this.colony.queen) {
+                if (!this.path || this.pathRecalcTimer <= 0) {
+                    this.path = game.findPath(this.x, this.y, this.colony.queen.x, this.colony.queen.y);
+                    this.pathIndex = 0;
+                    this.pathRecalcTimer = 2; // Recalc every 2 seconds
                 }
-            } else {
-                // No path found, try direct movement (will dig if needed)
-                this.moveTowards(game.queen.x, game.queen.y, dt, game);
+
+                // Follow path if we have one
+                if (this.path && this.pathIndex < this.path.length) {
+                    const target = this.path[this.pathIndex];
+                    this.moveTowards(target.x, target.y, dt, game);
+
+                    // Move to next waypoint if close enough
+                    const dx = target.x - this.x;
+                    const dy = target.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 0.5) {
+                        this.pathIndex++;
+                    }
+                } else {
+                    // No path found, try direct movement (will dig if needed)
+                    this.moveTowards(this.colony.queen.x, this.colony.queen.y, dt, game);
+                }
             }
 
-            const dx = game.queen.x - this.x;
-            const dy = game.queen.y - this.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (this.colony && this.colony.queen) {
+                const dx = this.colony.queen.x - this.x;
+                const dy = this.colony.queen.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist < 2.5) {
-                game.addFood(this.foodAmount);
-                this.foodAmount = 0;
-                this.carryingFood = false;
-                this.targetFood = null;
-                this.state = 'idle';
-                this.path = null; // Clear path
-                // Show delivery feedback particles
-                game.spawnFoodParticles(game.queen.x, game.queen.y);
+                if (dist < 2.5) {
+                    this.colony.food += this.foodAmount;
+                    this.foodAmount = 0;
+                    this.carryingFood = false;
+                    this.targetFood = null;
+                    this.state = 'idle';
+                    this.path = null; // Clear path
+                    // Show delivery feedback particles
+                    game.spawnFoodParticles(this.colony.queen.x, this.colony.queen.y);
+                }
             }
         } else {
             // Find food
@@ -1530,22 +1595,40 @@ class WorkerAnt extends Ant {
     }
 
     checkCombat(dt, game) {
-        for (let enemy of game.enemies) {
-            if (!enemy.alive) continue;
+        // Attack workers and queens from other factions
+        for (const colony of game.colonies) {
+            // Skip our own colony
+            if (this.colony && colony.factionId === this.colony.factionId) continue;
 
-            const dx = enemy.x - this.x;
-            const dy = enemy.y - this.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            // Check enemy workers
+            for (const enemy of colony.workers) {
+                if (!enemy.alive || enemy === this) continue;
 
-            if (dist < 1.5) {
-                // Attack - increased range to 1.5
-                if (this.attackCooldown === 0) {
-                    const healthBefore = enemy.health;
+                const dx = enemy.x - this.x;
+                const dy = enemy.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 1.5 && this.attackCooldown === 0) {
                     enemy.takeDamage(15, game);
-                    this.attackCooldown = 0.5; // Faster attacks
+                    this.attackCooldown = 0.5;
                     game.spawnHitParticles(enemy.x, enemy.y);
                     game.screenShake.intensity = 8;
-                    console.log(`Player attacked enemy! HP: ${healthBefore} -> ${enemy.health} (alive: ${enemy.alive})`);
+                    break; // Attack one enemy per frame
+                }
+            }
+
+            // Check enemy queen
+            if (colony.queen && colony.queen.alive) {
+                const dx = colony.queen.x - this.x;
+                const dy = colony.queen.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 1.5 && this.attackCooldown === 0) {
+                    colony.queen.takeDamage(10, game); // Less damage to queens
+                    this.attackCooldown = 0.5;
+                    game.spawnHitParticles(colony.queen.x, colony.queen.y);
+                    game.screenShake.intensity = 8;
+                    break;
                 }
             }
         }
@@ -1572,8 +1655,9 @@ class WorkerAnt extends Ant {
 }
 
 class Queen extends Ant {
-    constructor(x, y) {
+    constructor(x, y, colony) {
         super(x, y, false);
+        this.colony = colony;
         this.color = '#4a2a0a';
         this.size = 0.8;
         this.maxHealth = 200;
@@ -1593,17 +1677,11 @@ class Queen extends Ant {
         this.spawnTimer += dt;
 
         // Spawn new workers if we have food
-        if (this.spawnTimer >= this.spawnCooldown && game.colonyFood >= this.foodPerWorker) {
-            console.log(`Queen spawning worker! Food: ${game.colonyFood}, Timer: ${this.spawnTimer.toFixed(2)}s`);
-            game.colonyFood -= this.foodPerWorker;
-            game.spawnWorker();
+        if (this.spawnTimer >= this.spawnCooldown && this.colony && this.colony.food >= this.foodPerWorker) {
+            console.log(`${this.colony.colors.name} Queen spawning worker! Food: ${this.colony.food}, Timer: ${this.spawnTimer.toFixed(2)}s`);
+            this.colony.food -= this.foodPerWorker;
+            this.colony.spawnWorker(game);
             this.spawnTimer = 0;
-        } else if (game.colonyFood >= this.foodPerWorker) {
-            // Have food but timer not ready
-            if (Math.floor(this.spawnTimer) !== Math.floor(this.spawnTimer - dt)) {
-                // Log every second
-                console.log(`Waiting to spawn... Timer: ${this.spawnTimer.toFixed(1)}s / ${this.spawnCooldown}s, Food: ${game.colonyFood}/${this.foodPerWorker}`);
-            }
         }
     }
 
