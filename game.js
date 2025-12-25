@@ -942,6 +942,102 @@ class Game {
             console.log(`Worker spawned at (${spawnX.toFixed(1)}, ${spawnY.toFixed(1)})! Total workers: ${this.workers.length}`);
         }
     }
+
+    findPath(startX, startY, endX, endY) {
+        // Simple A* pathfinding through dug tunnels
+        const start = { x: Math.floor(startX), y: Math.floor(startY) };
+        const end = { x: Math.floor(endX), y: Math.floor(endY) };
+
+        // Quick check if start or end is invalid
+        if (!this.canMove(start.x, start.y) || !this.canMove(end.x, end.y)) {
+            return null;
+        }
+
+        const openSet = [start];
+        const cameFrom = new Map();
+        const gScore = new Map();
+        const fScore = new Map();
+
+        const key = (x, y) => `${x},${y}`;
+        gScore.set(key(start.x, start.y), 0);
+        fScore.set(key(start.x, start.y), this.heuristic(start.x, start.y, end.x, end.y));
+
+        let iterations = 0;
+        const maxIterations = 500; // Prevent infinite loops
+
+        while (openSet.length > 0 && iterations < maxIterations) {
+            iterations++;
+
+            // Find node with lowest fScore
+            let current = openSet[0];
+            let currentIdx = 0;
+            for (let i = 1; i < openSet.length; i++) {
+                const currentF = fScore.get(key(openSet[i].x, openSet[i].y)) || Infinity;
+                const lowestF = fScore.get(key(current.x, current.y)) || Infinity;
+                if (currentF < lowestF) {
+                    current = openSet[i];
+                    currentIdx = i;
+                }
+            }
+
+            // Reached goal
+            if (current.x === end.x && current.y === end.y) {
+                return this.reconstructPath(cameFrom, current);
+            }
+
+            openSet.splice(currentIdx, 1);
+
+            // Check neighbors
+            const neighbors = [
+                { x: current.x + 1, y: current.y },
+                { x: current.x - 1, y: current.y },
+                { x: current.x, y: current.y + 1 },
+                { x: current.x, y: current.y - 1 },
+                // Diagonals
+                { x: current.x + 1, y: current.y + 1 },
+                { x: current.x + 1, y: current.y - 1 },
+                { x: current.x - 1, y: current.y + 1 },
+                { x: current.x - 1, y: current.y - 1 }
+            ];
+
+            for (let neighbor of neighbors) {
+                if (!this.canMove(neighbor.x, neighbor.y)) continue;
+
+                const isDiagonal = neighbor.x !== current.x && neighbor.y !== current.y;
+                const tentativeG = (gScore.get(key(current.x, current.y)) || Infinity) + (isDiagonal ? 1.4 : 1);
+
+                const neighborKey = key(neighbor.x, neighbor.y);
+                if (tentativeG < (gScore.get(neighborKey) || Infinity)) {
+                    cameFrom.set(neighborKey, current);
+                    gScore.set(neighborKey, tentativeG);
+                    fScore.set(neighborKey, tentativeG + this.heuristic(neighbor.x, neighbor.y, end.x, end.y));
+
+                    if (!openSet.some(n => n.x === neighbor.x && n.y === neighbor.y)) {
+                        openSet.push(neighbor);
+                    }
+                }
+            }
+        }
+
+        return null; // No path found
+    }
+
+    heuristic(x1, y1, x2, y2) {
+        // Manhattan distance
+        return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+    }
+
+    reconstructPath(cameFrom, current) {
+        const path = [{ x: current.x + 0.5, y: current.y + 0.5 }];
+        const key = (x, y) => `${x},${y}`;
+
+        while (cameFrom.has(key(current.x, current.y))) {
+            current = cameFrom.get(key(current.x, current.y));
+            path.unshift({ x: current.x + 0.5, y: current.y + 0.5 });
+        }
+
+        return path;
+    }
 }
 
 class Joystick {
@@ -1233,6 +1329,9 @@ class WorkerAnt extends Ant {
         this.digCooldown = 0;
         this.attackCooldown = 0;
         this.stateTimer = 0;
+        this.path = null; // Pathfinding
+        this.pathIndex = 0;
+        this.pathRecalcTimer = 0;
     }
 
     update(dt, input, game) {
@@ -1312,10 +1411,34 @@ class WorkerAnt extends Ant {
     }
 
     updateAI(dt, game) {
-        // Simple AI behavior
+        // Simple AI behavior with pathfinding
         if (this.carryingFood) {
-            // Return to queen
-            this.moveTowards(game.queen.x, game.queen.y, dt, game);
+            // Return to queen using pathfinding
+            this.pathRecalcTimer -= dt;
+
+            // Calculate or recalculate path
+            if (!this.path || this.pathRecalcTimer <= 0) {
+                this.path = game.findPath(this.x, this.y, game.queen.x, game.queen.y);
+                this.pathIndex = 0;
+                this.pathRecalcTimer = 2; // Recalc every 2 seconds
+            }
+
+            // Follow path if we have one
+            if (this.path && this.pathIndex < this.path.length) {
+                const target = this.path[this.pathIndex];
+                this.moveTowards(target.x, target.y, dt, game);
+
+                // Move to next waypoint if close enough
+                const dx = target.x - this.x;
+                const dy = target.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 0.5) {
+                    this.pathIndex++;
+                }
+            } else {
+                // No path found, try direct movement (will dig if needed)
+                this.moveTowards(game.queen.x, game.queen.y, dt, game);
+            }
 
             const dx = game.queen.x - this.x;
             const dy = game.queen.y - this.y;
@@ -1327,6 +1450,7 @@ class WorkerAnt extends Ant {
                 this.carryingFood = false;
                 this.targetFood = null;
                 this.state = 'idle';
+                this.path = null; // Clear path
                 // Show delivery feedback particles
                 game.spawnFoodParticles(game.queen.x, game.queen.y);
             }
