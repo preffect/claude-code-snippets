@@ -2224,7 +2224,8 @@ class EnemyAnt extends Ant {
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             if (dist < this.aggroRange && dist < nearestDist) {
-                console.log(`player : worker ant nearby; distance ${dist.toFixed(2)} ; cool down now ${this.attackCooldown.toFixed(2)}`);
+                const cooldown = typeof this.attackCooldown === 'number' ? this.attackCooldown.toFixed(2) : this.attackCooldown;
+                console.log(`player : worker ant nearby; distance ${dist.toFixed(2)} ; cool down now ${cooldown}`);
                 nearestDist = dist;
                 nearest = game.player;
             }
