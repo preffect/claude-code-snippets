@@ -343,12 +343,6 @@ class Game {
 
         // Render particles
         this.particles.forEach(p => p.render(ctx, this.camera, this.tileSize));
-
-        // Test text at bottom
-        ctx.fillStyle = '#00FF00';
-        ctx.font = 'bold 24px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('test', this.canvas.width / 2, this.canvas.height - 20);
     }
 
     renderTile(x, y) {
@@ -883,14 +877,10 @@ class WorkerAnt extends Ant {
                 this.x = newX;
                 this.y = newY;
             } else {
-                // Try to dig
-                if (this.digCooldown === 0) {
-                    const digX = this.x + input.x * 0.5;
-                    const digY = this.y + input.y * 0.5;
-                    if (game.digTile(digX, digY, dt * 2)) {
-                        this.digCooldown = 0.1;
-                    }
-                }
+                // Try to dig - MUCH FASTER NOW!
+                const digX = this.x + input.x * 0.5;
+                const digY = this.y + input.y * 0.5;
+                game.digTile(digX, digY, dt * 10); // 5x faster digging!
             }
         }
 
@@ -1009,12 +999,8 @@ class WorkerAnt extends Ant {
                 this.x = newX;
                 this.y = newY;
             } else {
-                // Try to dig
-                if (this.digCooldown === 0) {
-                    if (game.digTile(this.x + dirX * 0.5, this.y + dirY * 0.5, dt)) {
-                        this.digCooldown = 0.2;
-                    }
-                }
+                // Try to dig - fast digging for AI too
+                game.digTile(this.x + dirX * 0.5, this.y + dirY * 0.5, dt * 8);
             }
         }
     }
