@@ -88,7 +88,10 @@ class Game {
             }
         }
 
-        // Create initial colony chamber
+        // Generate cave systems using cellular automata
+        this.generateCaveSystems();
+
+        // Create initial colony chamber (small starting area)
         const startX = Math.floor(this.worldWidth / 2);
         const startY = 10;
 
@@ -101,48 +104,199 @@ class Game {
             }
         }
 
-        // Spawn some food sources
-        this.spawnFoodSources(5);
+        // Spawn food sources in caves
+        this.spawnFoodInCaves(8);
 
-        // Spawn some enemy nests
-        this.spawnEnemyNests(3);
+        // Spawn enemy nests in caves
+        this.spawnEnemiesInCaves(4);
     }
 
-    spawnFoodSources(count) {
-        for (let i = 0; i < count; i++) {
-            const x = Math.random() * this.worldWidth;
-            const y = 8 + Math.random() * (this.worldHeight - 15);
-            const amount = 50 + Math.floor(Math.random() * 100);
+    generateCaveSystems() {
+        // Create multiple cave systems at different depths
+        const caveSeeds = [
+            { x: 15, y: 20, size: 8 },
+            { x: 60, y: 25, size: 10 },
+            { x: 35, y: 35, size: 12 },
+            { x: 50, y: 45, size: 10 },
+            { x: 20, y: 50, size: 9 }
+        ];
 
-            this.foodSources.push(new FoodSource(x, y, amount));
+        for (let seed of caveSeeds) {
+            this.generateCave(seed.x, seed.y, seed.size);
         }
     }
 
-    spawnEnemyNests(count) {
-        for (let i = 0; i < count; i++) {
-            const x = 10 + Math.random() * (this.worldWidth - 20);
-            const y = 15 + Math.random() * (this.worldHeight - 25);
+    generateCave(centerX, centerY, radius) {
+        // Cellular automata cave generation
+        // Create a temporary grid
+        const size = radius * 2 + 4;
+        const grid = [];
 
-            // Create a small chamber
-            for (let dy = -2; dy <= 2; dy++) {
-                for (let dx = -2; dx <= 2; dx++) {
-                    const tx = Math.floor(x + dx);
-                    const ty = Math.floor(y + dy);
-                    if (this.isValidTile(tx, ty)) {
-                        this.tiles[ty][tx].dug = true;
-                        this.tiles[ty][tx].type = 'air';
+        // Initialize with random noise
+        for (let y = 0; y < size; y++) {
+            grid[y] = [];
+            for (let x = 0; x < size; x++) {
+                grid[y][x] = Math.random() < 0.45 ? 1 : 0; // 1 = cave, 0 = wall
+            }
+        }
+
+        // Apply cellular automata rules
+        for (let iteration = 0; iteration < 4; iteration++) {
+            const newGrid = [];
+            for (let y = 0; y < size; y++) {
+                newGrid[y] = [];
+                for (let x = 0; x < size; x++) {
+                    const neighbors = this.countNeighbors(grid, x, y);
+
+                    if (grid[y][x] === 1) {
+                        // Cave cell
+                        newGrid[y][x] = neighbors >= 4 ? 1 : 0;
+                    } else {
+                        // Wall cell
+                        newGrid[y][x] = neighbors >= 5 ? 1 : 0;
                     }
                 }
             }
 
-            // Spawn enemy ants
-            for (let j = 0; j < 2 + Math.floor(Math.random() * 3); j++) {
+            // Copy newGrid to grid
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    grid[y][x] = newGrid[y][x];
+                }
+            }
+        }
+
+        // Apply cave to world, with circular fade
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                if (grid[y][x] === 1) {
+                    const worldX = centerX - radius - 2 + x;
+                    const worldY = centerY - radius - 2 + y;
+
+                    // Calculate distance from center for circular fade
+                    const dx = x - size / 2;
+                    const dy = y - size / 2;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const maxDist = radius;
+
+                    // Only apply if within radius and random chance based on distance
+                    if (dist < maxDist && this.isValidTile(worldX, worldY) && worldY >= 10) {
+                        const fadeChance = 1 - (dist / maxDist) * 0.5;
+                        if (Math.random() < fadeChance) {
+                            this.tiles[worldY][worldX].dug = true;
+                            this.tiles[worldY][worldX].type = 'air';
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    countNeighbors(grid, x, y) {
+        let count = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+
+                const nx = x + dx;
+                const ny = y + dy;
+
+                // Treat out of bounds as walls
+                if (ny < 0 || ny >= grid.length || nx < 0 || nx >= grid[0].length) {
+                    count++;
+                } else {
+                    count += grid[ny][nx];
+                }
+            }
+        }
+        return count;
+    }
+
+    spawnFoodInCaves(count) {
+        // Find cave locations (open spaces underground)
+        const caveSpots = [];
+
+        for (let y = 15; y < this.worldHeight - 5; y++) {
+            for (let x = 5; x < this.worldWidth - 5; x++) {
+                const tile = this.tiles[y][x];
+                // Look for open areas (caves) surrounded by some dirt
+                if (tile.dug && tile.type === 'air') {
+                    // Check if it's in a cave (has walls nearby)
+                    let wallCount = 0;
+                    for (let dy = -3; dy <= 3; dy++) {
+                        for (let dx = -3; dx <= 3; dx++) {
+                            const checkTile = this.getTile(x + dx, y + dy);
+                            if (checkTile && !checkTile.dug) {
+                                wallCount++;
+                            }
+                        }
+                    }
+                    // Good cave spot: has some walls nearby but is open
+                    if (wallCount > 15 && wallCount < 40) {
+                        caveSpots.push({ x: x + 0.5, y: y + 0.5 });
+                    }
+                }
+            }
+        }
+
+        // Spawn food in random cave spots
+        for (let i = 0; i < Math.min(count, caveSpots.length); i++) {
+            const spot = caveSpots[Math.floor(Math.random() * caveSpots.length)];
+            const amount = 50 + Math.floor(Math.random() * 100);
+            this.foodSources.push(new FoodSource(spot.x, spot.y, amount));
+
+            // Remove used spot
+            caveSpots.splice(caveSpots.indexOf(spot), 1);
+        }
+    }
+
+    spawnEnemiesInCaves(count) {
+        // Find good cave chambers for enemy nests
+        const nestSpots = [];
+
+        for (let y = 20; y < this.worldHeight - 10; y++) {
+            for (let x = 10; x < this.worldWidth - 10; x++) {
+                const tile = this.tiles[y][x];
+                if (tile.dug && tile.type === 'air') {
+                    // Check for a decent-sized cave chamber
+                    let openCount = 0;
+                    for (let dy = -4; dy <= 4; dy++) {
+                        for (let dx = -4; dx <= 4; dx++) {
+                            const checkTile = this.getTile(x + dx, y + dy);
+                            if (checkTile && checkTile.dug) {
+                                openCount++;
+                            }
+                        }
+                    }
+                    // Good nest spot: large enough open area
+                    if (openCount > 20 && openCount < 50) {
+                        // Make sure not too close to starting area
+                        const startX = this.worldWidth / 2;
+                        const dist = Math.abs(x - startX);
+                        if (dist > 15) {
+                            nestSpots.push({ x: x + 0.5, y: y + 0.5 });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Spawn enemies in random nest spots
+        for (let i = 0; i < Math.min(count, nestSpots.length); i++) {
+            const spot = nestSpots[Math.floor(Math.random() * nestSpots.length)];
+
+            // Spawn 2-5 enemy ants per nest
+            const enemyCount = 2 + Math.floor(Math.random() * 4);
+            for (let j = 0; j < enemyCount; j++) {
                 this.enemies.push(new EnemyAnt(
-                    x + (Math.random() - 0.5) * 3,
-                    y + (Math.random() - 0.5) * 3,
-                    x, y, 2 // nest position and radius
+                    spot.x + (Math.random() - 0.5) * 4,
+                    spot.y + (Math.random() - 0.5) * 4,
+                    spot.x, spot.y, 5 // nest position and radius
                 ));
             }
+
+            // Remove used spot to avoid overlap
+            nestSpots.splice(nestSpots.indexOf(spot), 1);
         }
     }
 
@@ -447,8 +601,8 @@ class Game {
     }
 
     spawnDigParticles(x, y) {
-        // Reduced from 6 to 2 particles
-        for (let i = 0; i < 2; i++) {
+        // Almost never spawn particles - minimal spam!
+        if (Math.random() < 0.05) {
             this.particles.push(new Particle(
                 x, y,
                 (Math.random() - 0.5) * 4,
@@ -461,9 +615,9 @@ class Game {
     }
 
     spawnDigBurst(x, y) {
-        // Reduced from 20 to 8 particles
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
+        // Just 2 particles when breaking through
+        for (let i = 0; i < 2; i++) {
+            const angle = (i / 2) * Math.PI * 2;
             const speed = 2 + Math.random() * 4;
             this.particles.push(new Particle(
                 x, y,
@@ -474,23 +628,11 @@ class Game {
                 8 + Math.random() * 6
             ));
         }
-        // Reduced from 10 to 3 dust clouds
-        for (let i = 0; i < 3; i++) {
-            this.particles.push(new Particle(
-                x, y,
-                (Math.random() - 0.5) * 2,
-                (Math.random() - 0.5) * 2 - 1,
-                'rgba(139, 69, 19, 0.6)',
-                1.5 + Math.random(),
-                10 + Math.random() * 8,
-                'cloud'
-            ));
-        }
     }
 
     spawnFoodParticles(x, y) {
-        // Reduced sparkle burst from 25 to 12
-        for (let i = 0; i < 12; i++) {
+        // Just 4 sparkles
+        for (let i = 0; i < 4; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 1 + Math.random() * 3;
             const colors = ['#FFD700', '#FFA500', '#FFFF00', '#FFE135'];
@@ -504,27 +646,25 @@ class Game {
                 'sparkle'
             ));
         }
-        // Reduced glow rings from 3 rings of 12 to 2 rings of 8
-        for (let ring = 0; ring < 2; ring++) {
-            for (let i = 0; i < 8; i++) {
-                const angle = (i / 8) * Math.PI * 2;
-                const speed = 3 + ring * 1.5;
-                this.particles.push(new Particle(
-                    x, y,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed,
-                    'rgba(255, 215, 0, 0.8)',
-                    0.6 + Math.random() * 0.3,
-                    5 + Math.random() * 3,
-                    'glow'
-                ));
-            }
+        // Just 1 small glow ring
+        for (let i = 0; i < 4; i++) {
+            const angle = (i / 4) * Math.PI * 2;
+            const speed = 3;
+            this.particles.push(new Particle(
+                x, y,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed,
+                'rgba(255, 215, 0, 0.8)',
+                0.6 + Math.random() * 0.3,
+                5 + Math.random() * 3,
+                'glow'
+            ));
         }
     }
 
     spawnHitParticles(x, y) {
-        // Reduced blood splatter from 15 to 8
-        for (let i = 0; i < 8; i++) {
+        // Just 3 blood particles
+        for (let i = 0; i < 3; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 3 + Math.random() * 4;
             const colors = ['#FF0000', '#FF4444', '#CC0000', '#FF6666'];
@@ -537,9 +677,9 @@ class Game {
                 8 + Math.random() * 6
             ));
         }
-        // Reduced impact flash from 8 to 5
-        for (let i = 0; i < 5; i++) {
-            const angle = (i / 5) * Math.PI * 2;
+        // Just 2 flash particles
+        for (let i = 0; i < 2; i++) {
+            const angle = (i / 2) * Math.PI * 2;
             this.particles.push(new Particle(
                 x, y,
                 Math.cos(angle) * 5,
