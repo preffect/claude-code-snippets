@@ -224,8 +224,8 @@ class Game {
         for (let y = 0; y < size; y++) {
             for (let x = 0; x < size; x++) {
                 if (grid[y][x] === 1) {
-                    const worldX = centerX - radius - 2 + x;
-                    const worldY = centerY - radius - 2 + y;
+                    const worldX = Math.floor(centerX - radius - 2 + x);
+                    const worldY = Math.floor(centerY - radius - 2 + y);
 
                     // Calculate distance from center for circular fade
                     const dx = x - size / 2;
