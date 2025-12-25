@@ -452,63 +452,109 @@ class Game {
     }
 
     spawnDigParticles(x, y) {
-        for (let i = 0; i < 2; i++) {
+        for (let i = 0; i < 6; i++) {
             this.particles.push(new Particle(
                 x, y,
-                (Math.random() - 0.5) * 2,
-                (Math.random() - 0.5) * 2,
-                '#8B4513',
-                0.3 + Math.random() * 0.3,
-                2 + Math.random() * 2
+                (Math.random() - 0.5) * 4,
+                (Math.random() - 0.5) * 4 - 1,
+                Math.random() < 0.5 ? '#D2691E' : '#8B4513',
+                0.8 + Math.random() * 0.5,
+                6 + Math.random() * 4
             ));
         }
     }
 
     spawnDigBurst(x, y) {
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            const speed = 1 + Math.random() * 2;
+        // Main burst
+        for (let i = 0; i < 20; i++) {
+            const angle = (i / 20) * Math.PI * 2;
+            const speed = 2 + Math.random() * 4;
             this.particles.push(new Particle(
                 x, y,
                 Math.cos(angle) * speed,
                 Math.sin(angle) * speed,
-                Math.random() < 0.5 ? '#8B4513' : '#A0522D',
-                0.5 + Math.random() * 0.5,
-                3 + Math.random() * 3
+                Math.random() < 0.3 ? '#CD853F' : (Math.random() < 0.5 ? '#D2691E' : '#8B4513'),
+                1.2 + Math.random() * 0.8,
+                8 + Math.random() * 6
+            ));
+        }
+        // Dust cloud
+        for (let i = 0; i < 10; i++) {
+            this.particles.push(new Particle(
+                x, y,
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2 - 1,
+                'rgba(139, 69, 19, 0.6)',
+                1.5 + Math.random(),
+                10 + Math.random() * 8,
+                'cloud'
             ));
         }
     }
 
     spawnFoodParticles(x, y) {
-        for (let i = 0; i < 10; i++) {
+        // Sparkle burst
+        for (let i = 0; i < 25; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = 0.5 + Math.random() * 1.5;
+            const speed = 1 + Math.random() * 3;
+            const colors = ['#FFD700', '#FFA500', '#FFFF00', '#FFE135'];
             this.particles.push(new Particle(
                 x, y,
                 Math.cos(angle) * speed,
-                Math.sin(angle) * speed - 1,
-                Math.random() < 0.5 ? '#FFD700' : '#FFA500',
-                0.8 + Math.random() * 0.4,
-                4 + Math.random() * 3,
+                Math.sin(angle) * speed - 2,
+                colors[Math.floor(Math.random() * colors.length)],
+                1.0 + Math.random() * 0.5,
+                8 + Math.random() * 6,
                 'sparkle'
             ));
+        }
+        // Glow rings
+        for (let ring = 0; ring < 3; ring++) {
+            for (let i = 0; i < 12; i++) {
+                const angle = (i / 12) * Math.PI * 2;
+                const speed = 3 + ring * 1.5;
+                this.particles.push(new Particle(
+                    x, y,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    'rgba(255, 215, 0, 0.8)',
+                    0.6 + Math.random() * 0.3,
+                    5 + Math.random() * 3,
+                    'glow'
+                ));
+            }
         }
     }
 
     spawnHitParticles(x, y) {
-        for (let i = 0; i < 5; i++) {
+        // Blood splatter effect
+        for (let i = 0; i < 15; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = 2 + Math.random() * 2;
+            const speed = 3 + Math.random() * 4;
+            const colors = ['#FF0000', '#FF4444', '#CC0000', '#FF6666'];
             this.particles.push(new Particle(
                 x, y,
                 Math.cos(angle) * speed,
                 Math.sin(angle) * speed,
-                '#FF0000',
-                0.3 + Math.random() * 0.2,
-                3 + Math.random() * 2
+                colors[Math.floor(Math.random() * colors.length)],
+                0.8 + Math.random() * 0.4,
+                8 + Math.random() * 6
             ));
         }
-        this.screenShake.intensity = 5;
+        // Impact flash
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            this.particles.push(new Particle(
+                x, y,
+                Math.cos(angle) * 5,
+                Math.sin(angle) * 5,
+                'rgba(255, 255, 100, 0.9)',
+                0.3,
+                12 + Math.random() * 8,
+                'flash'
+            ));
+        }
+        this.screenShake.intensity = 15;
     }
 
     updateAmbientParticles(dt) {
@@ -671,48 +717,127 @@ class Ant {
         const screenY = this.y * tileSize - camera.y + shakeY;
         const size = this.size * tileSize;
 
-        // Body
+        ctx.save();
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(screenX + 2, screenY + size * 0.5, size * 0.7, size * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Legs
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+            const legOffset = (i - 1) * size * 0.3;
+            // Left legs
+            ctx.beginPath();
+            ctx.moveTo(screenX - size * 0.4, screenY + legOffset);
+            ctx.lineTo(screenX - size * 0.8, screenY + legOffset + size * 0.4);
+            ctx.stroke();
+            // Right legs
+            ctx.beginPath();
+            ctx.moveTo(screenX + size * 0.4, screenY + legOffset);
+            ctx.lineTo(screenX + size * 0.8, screenY + legOffset + size * 0.4);
+            ctx.stroke();
+        }
+
+        // Abdomen (back segment)
+        const abdomenGradient = ctx.createRadialGradient(screenX, screenY + size * 0.2, 0, screenX, screenY + size * 0.2, size * 0.6);
+        abdomenGradient.addColorStop(0, this.color);
+        abdomenGradient.addColorStop(0.7, this.color);
+        abdomenGradient.addColorStop(1, '#000000');
+        ctx.fillStyle = abdomenGradient;
+        ctx.beginPath();
+        ctx.ellipse(screenX, screenY + size * 0.2, size * 0.6, size * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Thorax (middle segment)
+        const thoraxGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, size * 0.45);
+        thoraxGradient.addColorStop(0, this.color);
+        thoraxGradient.addColorStop(0.5, this.color);
+        thoraxGradient.addColorStop(1, '#000000');
+        ctx.fillStyle = thoraxGradient;
+        ctx.beginPath();
+        ctx.ellipse(screenX, screenY, size * 0.5, size * 0.4, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Head with gradient
+        const headGradient = ctx.createRadialGradient(screenX, screenY - size * 0.35, size * 0.1, screenX, screenY - size * 0.35, size * 0.4);
+        headGradient.addColorStop(0, this.color);
+        headGradient.addColorStop(0.7, this.color);
+        headGradient.addColorStop(1, '#000000');
+        ctx.fillStyle = headGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY - size * 0.35, size * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyes
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(screenX - size * 0.2, screenY - size * 0.4, size * 0.08, 0, Math.PI * 2);
+        ctx.arc(screenX + size * 0.2, screenY - size * 0.4, size * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eye shine
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.beginPath();
+        ctx.arc(screenX - size * 0.18, screenY - size * 0.42, size * 0.04, 0, Math.PI * 2);
+        ctx.arc(screenX + size * 0.22, screenY - size * 0.42, size * 0.04, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Antennae with curve
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(screenX - size * 0.15, screenY - size * 0.65);
+        ctx.quadraticCurveTo(screenX - size * 0.3, screenY - size * 0.9, screenX - size * 0.5, screenY - size * 0.95);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(screenX + size * 0.15, screenY - size * 0.65);
+        ctx.quadraticCurveTo(screenX + size * 0.3, screenY - size * 0.9, screenX + size * 0.5, screenY - size * 0.95);
+        ctx.stroke();
+
+        // Antennae tips
         ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.ellipse(screenX, screenY, size * 0.6, size * 0.4, 0, 0, Math.PI * 2);
+        ctx.arc(screenX - size * 0.5, screenY - size * 0.95, size * 0.1, 0, Math.PI * 2);
+        ctx.arc(screenX + size * 0.5, screenY - size * 0.95, size * 0.1, 0, Math.PI * 2);
         ctx.fill();
 
-        // Head
-        ctx.beginPath();
-        ctx.arc(screenX, screenY - size * 0.3, size * 0.35, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Antennae
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(screenX - size * 0.2, screenY - size * 0.5);
-        ctx.lineTo(screenX - size * 0.4, screenY - size * 0.8);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(screenX + size * 0.2, screenY - size * 0.5);
-        ctx.lineTo(screenX + size * 0.4, screenY - size * 0.8);
-        ctx.stroke();
+        ctx.restore();
 
         // Health bar
         if (this.health < this.maxHealth || this.isPlayer) {
-            const barWidth = size * 2;
-            const barHeight = 3;
+            const barWidth = size * 2.5;
+            const barHeight = 4;
             const barX = screenX - barWidth / 2;
-            const barY = screenY - size - 5;
+            const barY = screenY - size * 1.2;
 
+            // Bar background
+            ctx.fillStyle = '#222';
+            ctx.fillRect(barX - 1, barY - 1, barWidth + 2, barHeight + 2);
+
+            // Bar fill
             ctx.fillStyle = '#f00';
             ctx.fillRect(barX, barY, barWidth, barHeight);
             ctx.fillStyle = '#0f0';
             ctx.fillRect(barX, barY, barWidth * (this.health / this.maxHealth), barHeight);
         }
 
-        // Player indicator
+        // Player indicator glow
         if (this.isPlayer) {
-            ctx.strokeStyle = '#0ff';
-            ctx.lineWidth = 2;
+            const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+            ctx.strokeStyle = `rgba(0, 255, 255, ${pulse})`;
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.arc(screenX, screenY, size * 1.5, 0, Math.PI * 2);
+            ctx.arc(screenX, screenY, size * 1.8, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.strokeStyle = `rgba(0, 255, 255, ${pulse * 0.5})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, size * 2.2, 0, Math.PI * 2);
             ctx.stroke();
         }
     }
@@ -721,7 +846,7 @@ class Ant {
 class WorkerAnt extends Ant {
     constructor(x, y, isPlayer = false) {
         super(x, y, isPlayer);
-        this.color = '#2a1a0a';
+        this.color = '#8B4513'; // Saddle brown - much more visible
         this.carryingFood = false;
         this.foodAmount = 0;
         this.targetFood = null;
@@ -961,32 +1086,166 @@ class Queen extends Ant {
         const screenY = this.y * tileSize - camera.y + shakeY;
         const size = this.size * tileSize;
 
-        // Large body
-        ctx.fillStyle = this.color;
+        ctx.save();
+
+        // Royal glow aura
+        const pulse = Math.sin(Date.now() / 500) * 0.2 + 0.8;
+        const auraGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, size * 1.5 * pulse);
+        auraGradient.addColorStop(0, 'rgba(255, 215, 0, 0.3)');
+        auraGradient.addColorStop(0.5, 'rgba(255, 215, 0, 0.1)');
+        auraGradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+        ctx.fillStyle = auraGradient;
         ctx.beginPath();
-        ctx.ellipse(screenX, screenY, size * 0.8, size * 0.5, 0, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, size * 1.5 * pulse, 0, Math.PI * 2);
         ctx.fill();
 
-        // Head
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.beginPath();
-        ctx.arc(screenX, screenY - size * 0.4, size * 0.4, 0, Math.PI * 2);
+        ctx.ellipse(screenX + 3, screenY + size * 0.6, size * 1.0, size * 0.4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Crown indicator
-        ctx.fillStyle = '#ffd700';
+        // Legs (more legs for queen)
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 4; i++) {
+            const legOffset = (i - 1.5) * size * 0.25;
+            // Left legs
+            ctx.beginPath();
+            ctx.moveTo(screenX - size * 0.6, screenY + legOffset);
+            ctx.lineTo(screenX - size * 1.0, screenY + legOffset + size * 0.5);
+            ctx.stroke();
+            // Right legs
+            ctx.beginPath();
+            ctx.moveTo(screenX + size * 0.6, screenY + legOffset);
+            ctx.lineTo(screenX + size * 1.0, screenY + legOffset + size * 0.5);
+            ctx.stroke();
+        }
+
+        // Large segmented abdomen
+        for (let i = 0; i < 3; i++) {
+            const segmentY = screenY + size * 0.3 + i * size * 0.25;
+            const segmentSize = (0.9 - i * 0.1);
+            const abdomenGradient = ctx.createRadialGradient(screenX, segmentY, 0, screenX, segmentY, size * 0.8 * segmentSize);
+            abdomenGradient.addColorStop(0, '#6B4423');
+            abdomenGradient.addColorStop(0.5, this.color);
+            abdomenGradient.addColorStop(1, '#000000');
+            ctx.fillStyle = abdomenGradient;
+            ctx.beginPath();
+            ctx.ellipse(screenX, segmentY, size * 0.8 * segmentSize, size * 0.5 * segmentSize, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Segment shine
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.beginPath();
+            ctx.ellipse(screenX - size * 0.3, segmentY - size * 0.1, size * 0.3, size * 0.2, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Thorax
+        const thoraxGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, size * 0.6);
+        thoraxGradient.addColorStop(0, '#6B4423');
+        thoraxGradient.addColorStop(0.5, this.color);
+        thoraxGradient.addColorStop(1, '#000000');
+        ctx.fillStyle = thoraxGradient;
         ctx.beginPath();
-        ctx.arc(screenX, screenY - size * 0.7, size * 0.15, 0, Math.PI * 2);
+        ctx.ellipse(screenX, screenY, size * 0.6, size * 0.5, 0, 0, Math.PI * 2);
         ctx.fill();
+
+        // Head with gradient
+        const headGradient = ctx.createRadialGradient(screenX, screenY - size * 0.45, size * 0.15, screenX, screenY - size * 0.45, size * 0.45);
+        headGradient.addColorStop(0, '#6B4423');
+        headGradient.addColorStop(0.5, this.color);
+        headGradient.addColorStop(1, '#000000');
+        ctx.fillStyle = headGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY - size * 0.45, size * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyes (compound eyes - larger)
+        ctx.fillStyle = '#8B0000';
+        ctx.beginPath();
+        ctx.arc(screenX - size * 0.25, screenY - size * 0.5, size * 0.12, 0, Math.PI * 2);
+        ctx.arc(screenX + size * 0.25, screenY - size * 0.5, size * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eye shine
+        ctx.fillStyle = 'rgba(255, 100, 100, 0.6)';
+        ctx.beginPath();
+        ctx.arc(screenX - size * 0.22, screenY - size * 0.53, size * 0.05, 0, Math.PI * 2);
+        ctx.arc(screenX + size * 0.28, screenY - size * 0.53, size * 0.05, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Antennae
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(screenX - size * 0.2, screenY - size * 0.75);
+        ctx.quadraticCurveTo(screenX - size * 0.4, screenY - size * 1.0, screenX - size * 0.6, screenY - size * 1.1);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(screenX + size * 0.2, screenY - size * 0.75);
+        ctx.quadraticCurveTo(screenX + size * 0.4, screenY - size * 1.0, screenX + size * 0.6, screenY - size * 1.1);
+        ctx.stroke();
+
+        // Royal crown
+        const crownY = screenY - size * 0.85;
+        // Crown base
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.moveTo(screenX, crownY - size * 0.25);
+        for (let i = 0; i < 5; i++) {
+            const angle = (i / 5) * Math.PI * 2 - Math.PI / 2;
+            const x = screenX + Math.cos(angle) * size * 0.25;
+            const y = crownY + Math.sin(angle) * size * 0.25;
+            if (i % 2 === 0) {
+                ctx.lineTo(x, y - size * 0.15);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // Crown shine
+        const crownGradient = ctx.createRadialGradient(screenX, crownY, 0, screenX, crownY, size * 0.25);
+        crownGradient.addColorStop(0, 'rgba(255, 255, 200, 0.9)');
+        crownGradient.addColorStop(0.5, 'rgba(255, 215, 0, 0.6)');
+        crownGradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+        ctx.fillStyle = crownGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, crownY, size * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Crown jewel
+        ctx.fillStyle = '#FF0000';
+        ctx.beginPath();
+        ctx.arc(screenX, crownY, size * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(screenX - size * 0.03, crownY - size * 0.03, size * 0.03, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
 
         // Health bar
-        const barWidth = size * 2;
-        const barHeight = 4;
+        const barWidth = size * 2.5;
+        const barHeight = 5;
         const barX = screenX - barWidth / 2;
-        const barY = screenY - size - 8;
+        const barY = screenY - size * 1.3;
 
+        // Bar background
+        ctx.fillStyle = '#222';
+        ctx.fillRect(barX - 1, barY - 1, barWidth + 2, barHeight + 2);
+
+        // Bar fill
         ctx.fillStyle = '#f00';
         ctx.fillRect(barX, barY, barWidth, barHeight);
-        ctx.fillStyle = '#0f0';
+        const healthGradient = ctx.createLinearGradient(barX, barY, barX + barWidth * (this.health / this.maxHealth), barY);
+        healthGradient.addColorStop(0, '#0f0');
+        healthGradient.addColorStop(1, '#0f0');
+        ctx.fillStyle = healthGradient;
         ctx.fillRect(barX, barY, barWidth * (this.health / this.maxHealth), barHeight);
     }
 }
@@ -994,7 +1253,8 @@ class Queen extends Ant {
 class EnemyAnt extends Ant {
     constructor(x, y, nestX, nestY, nestRadius) {
         super(x, y, false);
-        this.color = '#8b0000';
+        this.color = '#FF0000'; // Bright red - very menacing
+        this.size = 0.5; // Slightly bigger
         this.nestX = nestX;
         this.nestY = nestY;
         this.nestRadius = nestRadius;
@@ -1199,7 +1459,15 @@ class Particle {
         ctx.globalAlpha = alpha;
 
         if (this.type === 'sparkle') {
-            // Star sparkle effect
+            // Star sparkle effect with glow
+            const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, this.size * 2);
+            gradient.addColorStop(0, this.color);
+            gradient.addColorStop(1, 'rgba(255, 255, 0, 0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, this.size * 2, 0, Math.PI * 2);
+            ctx.fill();
+
             ctx.translate(screenX, screenY);
             ctx.rotate(this.rotation);
             ctx.fillStyle = this.color;
@@ -1219,10 +1487,39 @@ class Particle {
             ctx.closePath();
             ctx.fill();
 
-            // Glow
-            ctx.fillStyle = `rgba(255, 255, 200, ${alpha * 0.5})`;
+            // Bright center
+            ctx.fillStyle = '#FFFFFF';
             ctx.beginPath();
-            ctx.arc(0, 0, this.size * 0.5, 0, Math.PI * 2);
+            ctx.arc(0, 0, this.size * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (this.type === 'glow') {
+            // Glowing ring particle
+            const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, this.size * 1.5);
+            gradient.addColorStop(0, this.color);
+            gradient.addColorStop(0.5, this.color.replace('0.8', '0.4'));
+            gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, this.size * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (this.type === 'flash') {
+            // Impact flash
+            const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, this.size);
+            gradient.addColorStop(0, '#FFFFFF');
+            gradient.addColorStop(0.3, this.color);
+            gradient.addColorStop(1, 'rgba(255, 255, 0, 0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, this.size, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (this.type === 'cloud') {
+            // Dust cloud
+            const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, this.size);
+            gradient.addColorStop(0, this.color);
+            gradient.addColorStop(1, 'rgba(139, 69, 19, 0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, this.size, 0, Math.PI * 2);
             ctx.fill();
         } else if (this.type === 'dust') {
             // Soft dust particle
@@ -1231,11 +1528,21 @@ class Particle {
             ctx.arc(screenX, screenY, this.size, 0, Math.PI * 2);
             ctx.fill();
         } else {
-            // Default dirt particle
+            // Dirt chunk with rotation and gradient
             ctx.translate(screenX, screenY);
             ctx.rotate(this.rotation);
+
+            // Shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(-this.size / 2 + 1, -this.size / 2 + 1, this.size, this.size);
+
+            // Main chunk
             ctx.fillStyle = this.color;
             ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+
+            // Highlight
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillRect(-this.size / 2, -this.size / 2, this.size / 2, this.size / 2);
         }
 
         ctx.restore();
