@@ -1208,11 +1208,16 @@ class Ant {
         this.color = '#000';
     }
 
-    takeDamage(amount) {
+    takeDamage(amount, game = null) {
         this.health -= amount;
         if (this.health <= 0) {
             this.health = 0;
             this.alive = false;
+
+            // Drop carried food when dying
+            if (this.carryingFood && this.foodAmount > 0 && game) {
+                game.foodSources.push(new FoodSource(this.x, this.y, this.foodAmount));
+            }
         }
     }
 
@@ -1563,7 +1568,7 @@ class WorkerAnt extends Ant {
             if (dist < 1.2) {
                 // Attack - increased range
                 if (this.attackCooldown === 0) {
-                    enemy.takeDamage(15);
+                    enemy.takeDamage(15, game);
                     this.attackCooldown = 0.5; // Faster attacks
                     game.spawnHitParticles(enemy.x, enemy.y);
                     game.screenShake.intensity = 8;
@@ -2072,6 +2077,8 @@ class EnemyAnt extends Ant {
         if (nearest) {
             // Attack mode - drop food if carrying to attack
             if (this.carryingFood) {
+                // Spawn dropped food on ground
+                game.foodSources.push(new FoodSource(this.x, this.y, this.foodAmount));
                 this.carryingFood = false;
                 this.foodAmount = 0;
                 this.targetFood = null;
@@ -2088,7 +2095,7 @@ class EnemyAnt extends Ant {
 
             if (currentDist < this.attackRange && this.attackCooldown === 0) {
                 const damage = 8;
-                nearest.takeDamage(damage);
+                nearest.takeDamage(damage, game);
                 this.attackCooldown = 1;
                 game.spawnHitParticles(nearest.x, nearest.y);
                 game.screenShake.intensity = 10;
