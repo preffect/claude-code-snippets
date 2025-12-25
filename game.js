@@ -589,16 +589,13 @@ class Game {
             enemyColony.createQueen(spot.x, spot.y);
             this.colonies.push(enemyColony);
 
-            // Spawn 2-4 workers for this colony
-            const workerCount = 2 + Math.floor(Math.random() * 3);
-            for (let j = 0; j < workerCount; j++) {
-                const worker = new WorkerAnt(
-                    spot.x + (Math.random() - 0.5) * 4,
-                    spot.y + (Math.random() - 0.5) * 4,
-                    false
-                );
-                enemyColony.addWorker(worker);
-            }
+            // Spawn 1 worker for this colony (same as player)
+            const worker = new WorkerAnt(
+                spot.x + (Math.random() - 0.5) * 4,
+                spot.y + (Math.random() - 0.5) * 4,
+                false
+            );
+            enemyColony.addWorker(worker);
 
             // Remove used spot to avoid overlap
             nestSpots.splice(nestSpots.indexOf(spot), 1);
