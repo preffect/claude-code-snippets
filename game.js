@@ -721,15 +721,6 @@ class Game {
 
         // Render particles
         this.particles.forEach(p => p.render(ctx, this.camera, this.tileSize));
-
-        // TEST TEXT - verify game is updating
-        ctx.save();
-        ctx.fillStyle = 'red';
-        ctx.font = 'bold 48px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('TEST', this.canvas.width / 2, this.canvas.height / 2);
-        ctx.restore();
     }
 
     renderTile(x, y) {
@@ -1571,21 +1562,7 @@ class WorkerAnt extends Ant {
             const screenY = this.y * tileSize - camera.y + shakeY;
             const size = this.size * tileSize;
 
-            // Green pulsing glow
-            const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
-            ctx.strokeStyle = `rgba(0, 255, 0, ${pulse})`;
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, size * 1.8, 0, Math.PI * 2);
-            ctx.stroke();
-
-            ctx.strokeStyle = `rgba(0, 255, 0, ${pulse * 0.5})`;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, size * 2.2, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // Draw food dot
+            // Draw food dot indicator (small gold circle)
             ctx.fillStyle = '#ff0';
             ctx.beginPath();
             ctx.arc(screenX, screenY - tileSize * 0.3, 3, 0, Math.PI * 2);
