@@ -113,7 +113,7 @@ class Game {
     generateCaves() {
         // Create cave generation map (start with random noise)
         const caveMap = [];
-        const fillProbability = 0.45; // Initial cave density
+        const fillProbability = 0.52; // Initial cave density - increased for more caves
 
         // Initialize cave map with random tiles
         for (let y = 0; y < this.worldHeight; y++) {
@@ -135,7 +135,7 @@ class Game {
 
         // Apply cellular automata rules to smooth caves
         // More iterations = smoother, more connected caves
-        for (let iteration = 0; iteration < 4; iteration++) {
+        for (let iteration = 0; iteration < 3; iteration++) {
             const newMap = [];
 
             for (let y = 0; y < this.worldHeight; y++) {
@@ -144,12 +144,12 @@ class Game {
                     // Count alive neighbors
                     const neighbors = this.countCaveNeighbors(caveMap, x, y);
 
-                    // Cellular automata rules
-                    // If 5 or more neighbors are caves, this becomes a cave
-                    // If 4 or fewer neighbors are caves, this becomes solid
-                    if (neighbors >= 5) {
+                    // Cellular automata rules - adjusted to keep more caves
+                    // If 4 or more neighbors are caves, this becomes a cave
+                    // If 3 or fewer neighbors are caves, this becomes solid
+                    if (neighbors >= 4) {
                         newMap[y][x] = 1;
-                    } else if (neighbors <= 3) {
+                    } else if (neighbors <= 2) {
                         newMap[y][x] = 0;
                     } else {
                         newMap[y][x] = caveMap[y][x]; // Keep current state
