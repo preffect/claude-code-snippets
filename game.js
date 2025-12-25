@@ -1692,17 +1692,46 @@ class WorkerAnt extends Ant {
             } else if (newY < 8 && !isClimbingPlant) {
                 // Can't move into air - do nothing
             } else {
-                // Blocked - try digging
-                // For diagonal movement, dig both X and Y blocking tiles
-                if (Math.abs(input.x) > 0.1 && Math.abs(input.y) > 0.1) {
-                    // Diagonal - dig both directions to prevent getting stuck
-                    game.digTile(this.x + input.x * 0.6, this.y, dt * 8);
-                    game.digTile(this.x, this.y + input.y * 0.6, dt * 8);
+                // Blocked in primary direction - try alternative directions
+                let moved = false;
+
+                // Try moving just horizontally (X direction)
+                const tryX = this.x + input.x * this.speed * dt;
+                const tryXTile = game.getTile(tryX, this.y);
+                const isXClimbingPlant = tryXTile && tryXTile.type === 'plant';
+                if (this.y >= 8 || isXClimbingPlant) {
+                    if (game.canMove(tryX, this.y)) {
+                        this.x = tryX;
+                        moved = true;
+                    }
                 }
-                // Always dig in the movement direction
-                const digX = this.x + input.x * 0.6;
-                const digY = this.y + input.y * 0.6;
-                game.digTile(digX, digY, dt * 10);
+
+                // If horizontal didn't work, try moving just vertically (Y direction)
+                if (!moved) {
+                    const tryY = this.y + input.y * this.speed * dt;
+                    const tryYTile = game.getTile(this.x, tryY);
+                    const isYClimbingPlant = tryYTile && tryYTile.type === 'plant';
+                    if (tryY >= 8 || isYClimbingPlant) {
+                        if (game.canMove(this.x, tryY)) {
+                            this.y = tryY;
+                            moved = true;
+                        }
+                    }
+                }
+
+                // If still can't move, dig to clear path
+                if (!moved) {
+                    // For diagonal movement, dig both X and Y blocking tiles
+                    if (Math.abs(input.x) > 0.1 && Math.abs(input.y) > 0.1) {
+                        // Diagonal - dig both directions to prevent getting stuck
+                        game.digTile(this.x + input.x * 0.6, this.y, dt * 8);
+                        game.digTile(this.x, this.y + input.y * 0.6, dt * 8);
+                    }
+                    // Always dig in the movement direction
+                    const digX = this.x + input.x * 0.6;
+                    const digY = this.y + input.y * 0.6;
+                    game.digTile(digX, digY, dt * 10);
+                }
             }
         }
 
@@ -1868,15 +1897,44 @@ class WorkerAnt extends Ant {
                 this.x = newX;
                 this.y = newY;
             } else {
-                // Blocked - dig to clear path
-                // For diagonal movement, dig both X and Y directions
-                if (Math.abs(dirX) > 0.1 && Math.abs(dirY) > 0.1) {
-                    // Diagonal - dig both directions to prevent getting stuck
-                    game.digTile(this.x + dirX * 0.6, this.y, dt * 8);
-                    game.digTile(this.x, this.y + dirY * 0.6, dt * 8);
+                // Blocked in primary direction - try alternative directions to make progress
+                let moved = false;
+
+                // Try moving just horizontally (X direction)
+                const tryX = this.x + dirX * this.speed * dt;
+                const tryXTile = game.getTile(tryX, this.y);
+                const isXClimbingPlant = tryXTile && tryXTile.type === 'plant';
+                if (this.y >= 8 || isXClimbingPlant) {
+                    if (game.canMove(tryX, this.y)) {
+                        this.x = tryX;
+                        moved = true;
+                    }
                 }
-                // Always dig in the movement direction
-                game.digTile(this.x + dirX * 0.6, this.y + dirY * 0.6, dt * 10);
+
+                // If horizontal didn't work, try moving just vertically (Y direction)
+                if (!moved) {
+                    const tryY = this.y + dirY * this.speed * dt;
+                    const tryYTile = game.getTile(this.x, tryY);
+                    const isYClimbingPlant = tryYTile && tryYTile.type === 'plant';
+                    if (tryY >= 8 || isYClimbingPlant) {
+                        if (game.canMove(this.x, tryY)) {
+                            this.y = tryY;
+                            moved = true;
+                        }
+                    }
+                }
+
+                // If still can't move, dig to clear path
+                if (!moved) {
+                    // For diagonal movement, dig both X and Y directions
+                    if (Math.abs(dirX) > 0.1 && Math.abs(dirY) > 0.1) {
+                        // Diagonal - dig both directions to prevent getting stuck
+                        game.digTile(this.x + dirX * 0.6, this.y, dt * 8);
+                        game.digTile(this.x, this.y + dirY * 0.6, dt * 8);
+                    }
+                    // Always dig in the movement direction
+                    game.digTile(this.x + dirX * 0.6, this.y + dirY * 0.6, dt * 10);
+                }
             }
         }
     }
