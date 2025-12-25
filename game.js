@@ -795,6 +795,18 @@ class Game {
             return b.workers.length - a.workers.length;
         });
 
+        // Debug logging
+        console.log('Colonies before sort:', this.colonies.map(c => ({
+            name: c.colors.name,
+            isPlayer: c.isPlayer,
+            workers: c.workers.length
+        })));
+        console.log('Colonies after sort:', sortedColonies.map(c => ({
+            name: c.colors.name,
+            isPlayer: c.isPlayer,
+            workers: c.workers.length
+        })));
+
         // Build faction stats HTML
         let html = '';
         for (const colony of sortedColonies) {
