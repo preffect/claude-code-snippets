@@ -717,6 +717,15 @@ class Game {
 
         // Render particles
         this.particles.forEach(p => p.render(ctx, this.camera, this.tileSize));
+
+        // TEST TEXT - verify game is updating
+        ctx.save();
+        ctx.fillStyle = 'red';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('TEST', this.canvas.width / 2, this.canvas.height / 2);
+        ctx.restore();
     }
 
     renderTile(x, y) {
