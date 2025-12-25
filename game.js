@@ -1389,6 +1389,9 @@ class Ant {
         this.alive = true;
         this.size = 0.4;
         this.color = '#000';
+        this.angle = Math.PI / 2; // Default facing down
+        this.walkTimer = 0; // For leg animation
+        this.antennaTimer = 0; // For antenna animation
     }
 
     takeDamage(amount, game = null) {
@@ -1415,90 +1418,101 @@ class Ant {
 
         ctx.save();
 
-        // Shadow
+        // Translate to ant position and rotate
+        ctx.translate(screenX, screenY);
+        ctx.rotate(this.angle);
+
+        // Shadow (doesn't rotate with ant)
+        ctx.save();
+        ctx.rotate(-this.angle);
         ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.beginPath();
-        ctx.ellipse(screenX + 2, screenY + size * 0.5, size * 0.7, size * 0.3, 0, 0, Math.PI * 2);
+        ctx.ellipse(2, size * 0.5, size * 0.7, size * 0.3, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
 
-        // Legs
+        // Animated legs
         ctx.strokeStyle = this.color;
         ctx.lineWidth = 2;
         for (let i = 0; i < 3; i++) {
             const legOffset = (i - 1) * size * 0.3;
+            // Leg animation - alternating pattern
+            const legWave = Math.sin(this.walkTimer + i * Math.PI / 1.5) * size * 0.15;
+
             // Left legs
             ctx.beginPath();
-            ctx.moveTo(screenX - size * 0.4, screenY + legOffset);
-            ctx.lineTo(screenX - size * 0.8, screenY + legOffset + size * 0.4);
+            ctx.moveTo(-size * 0.4, legOffset);
+            ctx.lineTo(-size * 0.8, legOffset + size * 0.4 + legWave);
             ctx.stroke();
             // Right legs
             ctx.beginPath();
-            ctx.moveTo(screenX + size * 0.4, screenY + legOffset);
-            ctx.lineTo(screenX + size * 0.8, screenY + legOffset + size * 0.4);
+            ctx.moveTo(size * 0.4, legOffset);
+            ctx.lineTo(size * 0.8, legOffset + size * 0.4 - legWave);
             ctx.stroke();
         }
 
-        // Abdomen (back segment)
-        const abdomenGradient = ctx.createRadialGradient(screenX, screenY + size * 0.2, 0, screenX, screenY + size * 0.2, size * 0.6);
+        // Abdomen (back segment) - positioned behind
+        const abdomenGradient = ctx.createRadialGradient(0, size * 0.2, 0, 0, size * 0.2, size * 0.6);
         abdomenGradient.addColorStop(0, this.color);
         abdomenGradient.addColorStop(0.7, this.color);
         abdomenGradient.addColorStop(1, '#000000');
         ctx.fillStyle = abdomenGradient;
         ctx.beginPath();
-        ctx.ellipse(screenX, screenY + size * 0.2, size * 0.6, size * 0.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, size * 0.2, size * 0.6, size * 0.5, 0, 0, Math.PI * 2);
         ctx.fill();
 
         // Thorax (middle segment)
-        const thoraxGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, size * 0.45);
+        const thoraxGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.45);
         thoraxGradient.addColorStop(0, this.color);
         thoraxGradient.addColorStop(0.5, this.color);
         thoraxGradient.addColorStop(1, '#000000');
         ctx.fillStyle = thoraxGradient;
         ctx.beginPath();
-        ctx.ellipse(screenX, screenY, size * 0.5, size * 0.4, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, size * 0.5, size * 0.4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Head with gradient
-        const headGradient = ctx.createRadialGradient(screenX, screenY - size * 0.35, size * 0.1, screenX, screenY - size * 0.35, size * 0.4);
+        // Head with gradient - positioned forward
+        const headGradient = ctx.createRadialGradient(0, -size * 0.35, size * 0.1, 0, -size * 0.35, size * 0.4);
         headGradient.addColorStop(0, this.color);
         headGradient.addColorStop(0.7, this.color);
         headGradient.addColorStop(1, '#000000');
         ctx.fillStyle = headGradient;
         ctx.beginPath();
-        ctx.arc(screenX, screenY - size * 0.35, size * 0.4, 0, Math.PI * 2);
+        ctx.arc(0, -size * 0.35, size * 0.4, 0, Math.PI * 2);
         ctx.fill();
 
         // Eyes
         ctx.fillStyle = '#000000';
         ctx.beginPath();
-        ctx.arc(screenX - size * 0.2, screenY - size * 0.4, size * 0.08, 0, Math.PI * 2);
-        ctx.arc(screenX + size * 0.2, screenY - size * 0.4, size * 0.08, 0, Math.PI * 2);
+        ctx.arc(-size * 0.2, -size * 0.4, size * 0.08, 0, Math.PI * 2);
+        ctx.arc(size * 0.2, -size * 0.4, size * 0.08, 0, Math.PI * 2);
         ctx.fill();
 
         // Eye shine
         ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         ctx.beginPath();
-        ctx.arc(screenX - size * 0.18, screenY - size * 0.42, size * 0.04, 0, Math.PI * 2);
-        ctx.arc(screenX + size * 0.22, screenY - size * 0.42, size * 0.04, 0, Math.PI * 2);
+        ctx.arc(-size * 0.18, -size * 0.42, size * 0.04, 0, Math.PI * 2);
+        ctx.arc(size * 0.22, -size * 0.42, size * 0.04, 0, Math.PI * 2);
         ctx.fill();
 
-        // Antennae with curve
+        // Animated antennae with curve and sway
+        const antennaSway = Math.sin(this.antennaTimer) * 0.1;
         ctx.strokeStyle = this.color;
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(screenX - size * 0.15, screenY - size * 0.65);
-        ctx.quadraticCurveTo(screenX - size * 0.3, screenY - size * 0.9, screenX - size * 0.5, screenY - size * 0.95);
+        ctx.moveTo(-size * 0.15, -size * 0.65);
+        ctx.quadraticCurveTo(-size * 0.3 + antennaSway * size, -size * 0.9, -size * 0.5 + antennaSway * size, -size * 0.95);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(screenX + size * 0.15, screenY - size * 0.65);
-        ctx.quadraticCurveTo(screenX + size * 0.3, screenY - size * 0.9, screenX + size * 0.5, screenY - size * 0.95);
+        ctx.moveTo(size * 0.15, -size * 0.65);
+        ctx.quadraticCurveTo(size * 0.3 - antennaSway * size, -size * 0.9, size * 0.5 - antennaSway * size, -size * 0.95);
         ctx.stroke();
 
         // Antennae tips
         ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.arc(screenX - size * 0.5, screenY - size * 0.95, size * 0.1, 0, Math.PI * 2);
-        ctx.arc(screenX + size * 0.5, screenY - size * 0.95, size * 0.1, 0, Math.PI * 2);
+        ctx.arc(-size * 0.5 + antennaSway * size, -size * 0.95, size * 0.1, 0, Math.PI * 2);
+        ctx.arc(size * 0.5 - antennaSway * size, -size * 0.95, size * 0.1, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -1567,6 +1581,13 @@ class WorkerAnt extends Ant {
     updatePlayer(dt, input, game) {
         // Movement and digging
         if (input.x !== 0 || input.y !== 0) {
+            // Update facing direction based on input
+            this.angle = Math.atan2(input.y, input.x);
+
+            // Animate walking
+            this.walkTimer += dt * 8; // Speed of leg animation
+            this.antennaTimer += dt * 3; // Speed of antenna sway
+
             const newX = this.x + input.x * this.speed * dt;
             const newY = this.y + input.y * this.speed * dt;
 
@@ -1731,6 +1752,13 @@ class WorkerAnt extends Ant {
         if (dist > 0.1) {
             const dirX = dx / dist;
             const dirY = dy / dist;
+
+            // Update facing direction
+            this.angle = Math.atan2(dirY, dirX);
+
+            // Animate walking
+            this.walkTimer += dt * 8;
+            this.antennaTimer += dt * 3;
 
             const newX = this.x + dirX * this.speed * dt;
             const newY = this.y + dirY * this.speed * dt;
@@ -2429,6 +2457,13 @@ class EnemyAnt extends Ant {
         if (dist > 0.1) {
             const dirX = dx / dist;
             const dirY = dy / dist;
+
+            // Update facing direction
+            this.angle = Math.atan2(dirY, dirX);
+
+            // Animate walking
+            this.walkTimer += dt * 8;
+            this.antennaTimer += dt * 3;
 
             const newX = this.x + dirX * this.speed * dt;
             const newY = this.y + dirY * this.speed * dt;
