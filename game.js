@@ -69,6 +69,9 @@ class Game {
     }
 
     generateWorld() {
+        // Track all spawn locations for fair food distribution
+        this.spawnLocations = [];
+
         // Initialize world with dirt tiles
         for (let y = 0; y < this.worldHeight; y++) {
             this.tiles[y] = [];
@@ -87,6 +90,9 @@ class Game {
             }
         }
 
+        // Generate natural caves using cellular automata
+        this.generateCaves();
+
         // Create initial colony chamber
         const startX = Math.floor(this.worldWidth / 2);
         const startY = 10;
@@ -100,20 +106,145 @@ class Game {
             }
         }
 
-        // Spawn some food sources
-        this.spawnFoodSources(5);
+        // Track player spawn location
+        this.spawnLocations.push({ x: startX, y: startY });
 
-        // Spawn some enemy nests
+        // Spawn enemy nests BEFORE food
         this.spawnEnemyNests(3);
+
+        // Spawn food sources with distance checks from all spawn points
+        this.spawnFoodSources(5);
+    }
+
+    generateCaves() {
+        // Create cave generation map (start with random noise)
+        const caveMap = [];
+        const fillProbability = 0.52; // Initial cave density - increased for more caves
+
+        // Initialize cave map with random tiles
+        for (let y = 0; y < this.worldHeight; y++) {
+            caveMap[y] = [];
+            for (let x = 0; x < this.worldWidth; x++) {
+                // Only generate caves in underground area (below y = 5)
+                // Leave some border space
+                if (y >= 8 && y < this.worldHeight - 3 && x >= 3 && x < this.worldWidth - 3) {
+                    // Use seeded random for consistent generation across regions
+                    const seed = (x + y * this.worldWidth);
+                    const pseudo = Math.sin(seed * 12.9898 + seed * 78.233) * 43758.5453;
+                    const randomValue = pseudo - Math.floor(pseudo);
+                    caveMap[y][x] = randomValue < fillProbability ? 1 : 0;
+                } else {
+                    caveMap[y][x] = 0; // No caves in borders/surface
+                }
+            }
+        }
+
+        // Apply cellular automata rules to smooth caves
+        // More iterations = smoother, more connected caves
+        for (let iteration = 0; iteration < 3; iteration++) {
+            const newMap = [];
+
+            for (let y = 0; y < this.worldHeight; y++) {
+                newMap[y] = [];
+                for (let x = 0; x < this.worldWidth; x++) {
+                    // Count alive neighbors
+                    const neighbors = this.countCaveNeighbors(caveMap, x, y);
+
+                    // Cellular automata rules - adjusted to keep more caves
+                    // If 4 or more neighbors are caves, this becomes a cave
+                    // If 3 or fewer neighbors are caves, this becomes solid
+                    if (neighbors >= 4) {
+                        newMap[y][x] = 1;
+                    } else if (neighbors <= 2) {
+                        newMap[y][x] = 0;
+                    } else {
+                        newMap[y][x] = caveMap[y][x]; // Keep current state
+                    }
+                }
+            }
+
+            // Copy new map to cave map for next iteration
+            for (let y = 0; y < this.worldHeight; y++) {
+                for (let x = 0; x < this.worldWidth; x++) {
+                    caveMap[y][x] = newMap[y][x];
+                }
+            }
+        }
+
+        // Apply cave map to actual world tiles
+        for (let y = 0; y < this.worldHeight; y++) {
+            for (let x = 0; x < this.worldWidth; x++) {
+                if (caveMap[y][x] === 1) {
+                    this.tiles[y][x].dug = true;
+                    this.tiles[y][x].type = 'air';
+                }
+            }
+        }
+    }
+
+    countCaveNeighbors(map, x, y) {
+        let count = 0;
+
+        // Check 8 surrounding tiles plus further neighbors for smoother caves
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+
+                const nx = x + dx;
+                const ny = y + dy;
+
+                if (ny >= 0 && ny < this.worldHeight && nx >= 0 && nx < this.worldWidth) {
+                    count += map[ny][nx];
+                } else {
+                    // Treat out of bounds as solid (helps prevent edge caves)
+                    count += 0;
+                }
+            }
+        }
+
+        return count;
     }
 
     spawnFoodSources(count) {
-        for (let i = 0; i < count; i++) {
-            const x = Math.random() * this.worldWidth;
-            const y = 8 + Math.random() * (this.worldHeight - 15);
-            const amount = 50 + Math.floor(Math.random() * 100);
+        // Spawn food in random cave locations for fair distribution
+        const minDistanceFromSpawn = 10; // Minimum distance from any spawn point
 
-            this.foodSources.push(new FoodSource(x, y, amount));
+        for (let i = 0; i < count; i++) {
+            let x, y;
+            let attempts = 0;
+            const maxAttempts = 200;
+            let validLocation = false;
+
+            // Find a cave tile to spawn food in, away from all spawn points
+            do {
+                x = 5 + Math.random() * (this.worldWidth - 10);
+                y = 10 + Math.random() * (this.worldHeight - 15);
+                attempts++;
+
+                // Check if this is a cave tile
+                if (!this.getTile(x, y)?.dug) {
+                    continue;
+                }
+
+                // Check distance from all spawn locations
+                validLocation = true;
+                for (let spawn of this.spawnLocations) {
+                    const dx = spawn.x - x;
+                    const dy = spawn.y - y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < minDistanceFromSpawn) {
+                        validLocation = false;
+                        break;
+                    }
+                }
+            } while (attempts < maxAttempts && !validLocation);
+
+            // If we found a valid cave location away from spawns, spawn food there
+            if (validLocation) {
+                const amount = 50 + Math.floor(Math.random() * 100);
+                this.foodSources.push(new FoodSource(x, y, amount));
+            }
         }
     }
 
@@ -121,6 +252,9 @@ class Game {
         for (let i = 0; i < count; i++) {
             const x = 10 + Math.random() * (this.worldWidth - 20);
             const y = 15 + Math.random() * (this.worldHeight - 25);
+
+            // Track this enemy nest spawn location
+            this.spawnLocations.push({ x: x, y: y });
 
             // Create a small chamber
             for (let dy = -2; dy <= 2; dy++) {
@@ -343,6 +477,13 @@ class Game {
 
         // Render particles
         this.particles.forEach(p => p.render(ctx, this.camera, this.tileSize));
+
+        // Test text - fair food distribution update
+        ctx.fillStyle = '#ffff00';
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('FAIR FOOD v3 ✓', this.canvas.width / 2, this.canvas.height / 2);
     }
 
     renderTile(x, y) {
