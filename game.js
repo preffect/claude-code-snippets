@@ -1346,6 +1346,7 @@ class WorkerAnt extends Ant {
     constructor(x, y, isPlayer = false) {
         super(x, y, isPlayer);
         this.color = '#8B4513'; // Saddle brown - much more visible
+        this.size = 0.6; // Bigger than base ant (0.4) for better visibility
         this.carryingFood = false;
         this.foodAmount = 0;
         this.targetFood = null;
@@ -2009,7 +2010,7 @@ class EnemyAnt extends Ant {
     constructor(x, y, queen) {
         super(x, y, false);
         this.color = '#FF0000'; // Bright red - very menacing
-        this.size = 0.5; // Slightly bigger
+        this.size = 0.6; // Same size as friendly workers for better visibility
         this.speed = 2; // Slower than friendly workers (friendly workers have speed 3)
         this.queen = queen; // Reference to enemy queen
         this.aggroRange = 4; // Reduced so they focus on food gathering unless very close
