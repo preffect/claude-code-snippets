@@ -226,23 +226,26 @@ class Game {
         // Find cave locations (open spaces underground)
         const caveSpots = [];
 
-        for (let y = 15; y < this.worldHeight - 5; y++) {
+        // Look for cave spots with more lenient criteria
+        for (let y = 12; y < this.worldHeight - 5; y++) {
             for (let x = 5; x < this.worldWidth - 5; x++) {
                 const tile = this.tiles[y][x];
-                // Look for open areas (caves) surrounded by some dirt
+                // Look for open areas (caves)
                 if (tile.dug && tile.type === 'air') {
-                    // Check if it's in a cave (has walls nearby)
-                    let wallCount = 0;
-                    for (let dy = -3; dy <= 3; dy++) {
-                        for (let dx = -3; dx <= 3; dx++) {
+                    // Check if it has some nearby open space (is in a cave)
+                    let openCount = 0;
+                    for (let dy = -2; dy <= 2; dy++) {
+                        for (let dx = -2; dx <= 2; dx++) {
                             const checkTile = this.getTile(x + dx, y + dy);
-                            if (checkTile && !checkTile.dug) {
-                                wallCount++;
+                            if (checkTile && checkTile.dug) {
+                                openCount++;
                             }
                         }
                     }
-                    // Good cave spot: has some walls nearby but is open
-                    if (wallCount > 15 && wallCount < 40) {
+                    // Good cave spot: has enough open space around it
+                    // Not the starting chamber (too close to center)
+                    const distFromStart = Math.abs(x - this.worldWidth / 2);
+                    if (openCount > 8 && distFromStart > 10) {
                         caveSpots.push({ x: x + 0.5, y: y + 0.5 });
                     }
                 }
@@ -250,14 +253,19 @@ class Game {
         }
 
         // Spawn food in random cave spots
-        for (let i = 0; i < Math.min(count, caveSpots.length); i++) {
-            const spot = caveSpots[Math.floor(Math.random() * caveSpots.length)];
+        const spawned = Math.min(count, caveSpots.length);
+        for (let i = 0; i < spawned; i++) {
+            const randomIndex = Math.floor(Math.random() * caveSpots.length);
+            const spot = caveSpots[randomIndex];
             const amount = 50 + Math.floor(Math.random() * 100);
             this.foodSources.push(new FoodSource(spot.x, spot.y, amount));
 
-            // Remove used spot
-            caveSpots.splice(caveSpots.indexOf(spot), 1);
+            // Remove used spot to avoid duplicates
+            caveSpots.splice(randomIndex, 1);
         }
+
+        // Debug: log how many food sources we spawned
+        console.log(`Spawned ${this.foodSources.length} food sources`);
     }
 
     spawnEnemiesInCaves(count) {
@@ -1072,26 +1080,34 @@ class WorkerAnt extends Ant {
                 this.x = newX;
                 this.y = newY;
             } else {
-                // Try to dig - MUCH FASTER NOW!
-                const digX = this.x + input.x * 0.5;
-                const digY = this.y + input.y * 0.5;
-                game.digTile(digX, digY, dt * 10); // 5x faster digging!
+                // Blocked - try digging
+                // For diagonal movement, dig both X and Y blocking tiles
+                if (Math.abs(input.x) > 0.1 && Math.abs(input.y) > 0.1) {
+                    // Diagonal - dig both directions to prevent getting stuck
+                    game.digTile(this.x + input.x * 0.6, this.y, dt * 8);
+                    game.digTile(this.x, this.y + input.y * 0.6, dt * 8);
+                }
+                // Always dig in the movement direction
+                const digX = this.x + input.x * 0.6;
+                const digY = this.y + input.y * 0.6;
+                game.digTile(digX, digY, dt * 10);
             }
         }
 
-        // Pick up food
+        // Pick up food - increased range to 1.5 tiles
         if (!this.carryingFood) {
             for (let food of game.foodSources) {
                 const dx = food.x - this.x;
                 const dy = food.y - this.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
-                if (dist < 1 && food.amount > 0) {
+                if (dist < 1.5 && food.amount > 0) {
                     const taken = Math.min(10, food.amount);
                     food.amount -= taken;
                     this.foodAmount = taken;
                     this.carryingFood = true;
                     game.spawnFoodParticles(this.x, this.y);
+                    console.log(`Picked up ${taken} food! Carrying: ${this.carryingFood}`);
                     break;
                 }
             }
@@ -1567,36 +1583,63 @@ class FoodSource {
         const screenX = this.x * tileSize - camera.x;
         const screenY = this.y * tileSize - camera.y;
 
-        // Draw food blob with pulse effect
+        // Draw food as seeds/berries pile
         this.pulseTimer += 0.05;
-        const pulse = Math.sin(this.pulseTimer) * 0.1 + 1;
-        const radius = (5 + (this.amount / this.maxAmount) * 10) * pulse;
+        const pulse = Math.sin(this.pulseTimer) * 0.05 + 1;
+        const size = (8 + (this.amount / this.maxAmount) * 6) * pulse;
 
-        // Glow
-        const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius * 1.5);
-        gradient.addColorStop(0, 'rgba(255, 235, 59, 0.6)');
-        gradient.addColorStop(1, 'rgba(255, 235, 59, 0)');
-        ctx.fillStyle = gradient;
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.beginPath();
-        ctx.arc(screenX, screenY, radius * 1.5, 0, Math.PI * 2);
+        ctx.ellipse(screenX + 1, screenY + size * 0.6, size * 0.9, size * 0.3, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Main blob
-        ctx.fillStyle = '#ffeb3b';
+        // Draw multiple seed/berry pieces
+        const pieceCount = Math.min(8, Math.ceil(this.amount / 15));
+        for (let i = 0; i < pieceCount; i++) {
+            const angle = (i / pieceCount) * Math.PI * 2 + this.pulseTimer * 0.1;
+            const dist = size * 0.3 * Math.sin(i * 2.4);
+            const px = screenX + Math.cos(angle) * dist;
+            const py = screenY + Math.sin(angle) * dist * 0.5;
+            const pieceSize = size * (0.5 + Math.sin(i * 1.7) * 0.2);
+
+            // Seed/berry body
+            const gradient = ctx.createRadialGradient(px - pieceSize * 0.2, py - pieceSize * 0.2, 0, px, py, pieceSize);
+            gradient.addColorStop(0, '#FFE082');
+            gradient.addColorStop(0.7, '#FFB74D');
+            gradient.addColorStop(1, '#F57C00');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(px, py, pieceSize, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Highlight
+            ctx.fillStyle = 'rgba(255, 255, 200, 0.6)';
+            ctx.beginPath();
+            ctx.arc(px - pieceSize * 0.3, py - pieceSize * 0.3, pieceSize * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Central main piece (larger)
+        const mainGradient = ctx.createRadialGradient(screenX - size * 0.2, screenY - size * 0.2, 0, screenX, screenY, size);
+        mainGradient.addColorStop(0, '#FFECB3');
+        mainGradient.addColorStop(0.6, '#FFB74D');
+        mainGradient.addColorStop(1, '#F57C00');
+        ctx.fillStyle = mainGradient;
         ctx.beginPath();
-        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, size * 0.8, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.strokeStyle = '#ffa000';
-        ctx.lineWidth = 2;
+        // Outline
+        ctx.strokeStyle = '#E65100';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Amount text
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 10px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.amount, screenX, screenY);
+        // Shine
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.beginPath();
+        ctx.arc(screenX - size * 0.3, screenY - size * 0.3, size * 0.25, 0, Math.PI * 2);
+        ctx.fill();
     }
 }
 
