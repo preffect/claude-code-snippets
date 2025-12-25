@@ -186,15 +186,26 @@ class Game {
     }
 
     generateWorld() {
-        // Initialize world with dirt tiles
+        // Initialize world with different layers
         for (let y = 0; y < this.worldHeight; y++) {
             this.tiles[y] = [];
             for (let x = 0; x < this.worldWidth; x++) {
                 const depth = y / this.worldHeight;
-                // Sky at top, dirt underground
-                if (y < 5) {
+
+                // Surface layer (air/sky)
+                if (y < 8) {
                     this.tiles[y][x] = { type: 'air', dug: true };
-                } else {
+                }
+                // Grass/topsoil layer
+                else if (y >= 8 && y < 10) {
+                    this.tiles[y][x] = { type: 'grass', dug: true };
+                }
+                // Bedrock layer at bottom
+                else if (y >= this.worldHeight - 5) {
+                    this.tiles[y][x] = { type: 'bedrock', dug: false, hardness: Infinity };
+                }
+                // Underground dirt
+                else {
                     this.tiles[y][x] = {
                         type: 'dirt',
                         dug: false,
@@ -207,9 +218,9 @@ class Game {
         // Generate cave systems using cellular automata
         this.generateCaveSystems();
 
-        // Create initial colony chamber (small starting area)
+        // Create initial colony chamber (small starting area) - underground
         const startX = Math.floor(this.worldWidth / 2);
-        const startY = 10;
+        const startY = 15; // Moved deeper underground (below grass layer)
 
         for (let y = startY; y < startY + 4; y++) {
             for (let x = startX - 3; x < startX + 4; x++) {
@@ -235,9 +246,10 @@ class Game {
         const caveCount = 8 + Math.floor(Math.random() * 5);
 
         for (let i = 0; i < caveCount; i++) {
-            const depth = 15 + i * 5 + Math.floor(Math.random() * 8);
+            const depth = 20 + i * 5 + Math.floor(Math.random() * 8);
             const x = 10 + Math.floor(Math.random() * (this.worldWidth - 20));
-            const y = Math.min(depth, this.worldHeight - 10);
+            // Keep caves between grass layer (y=10) and bedrock (worldHeight-5)
+            const y = Math.min(depth, this.worldHeight - 15);
 
             // Vary cave sizes based on depth
             const baseSize = 6 + Math.floor(Math.random() * 8);
@@ -511,8 +523,8 @@ class Game {
         // Find cave locations (open spaces underground)
         const caveSpots = [];
 
-        // Look for cave spots with more lenient criteria
-        for (let y = 12; y < this.worldHeight - 5; y++) {
+        // Look for cave spots with more lenient criteria (stay underground, avoid bedrock)
+        for (let y = 15; y < this.worldHeight - 10; y++) {
             for (let x = 5; x < this.worldWidth - 5; x++) {
                 const tile = this.tiles[y][x];
                 // Look for open areas (caves)
@@ -557,7 +569,8 @@ class Game {
         // Find good cave chambers for enemy nests
         const nestSpots = [];
 
-        for (let y = 20; y < this.worldHeight - 10; y++) {
+        // Keep enemy nests underground, away from bedrock
+        for (let y = 25; y < this.worldHeight - 15; y++) {
             for (let x = 10; x < this.worldWidth - 10; x++) {
                 const tile = this.tiles[y][x];
                 if (tile.dug && tile.type === 'air') {
@@ -898,7 +911,22 @@ class Game {
         const screenX = x * this.tileSize - this.camera.x + this.screenShake.x;
         const screenY = y * this.tileSize - this.camera.y + this.screenShake.y;
 
-        if (tile.dug || tile.type === 'air') {
+        if (tile.type === 'grass') {
+            // Grass surface - green
+            const variation = (x * 13 + y * 17) % 20;
+            const greenValue = 100 + variation;
+            this.ctx.fillStyle = `rgb(34, ${greenValue}, 34)`;
+            this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+
+            // Add grass texture
+            const seed = x * 73 + y * 37;
+            for (let i = 0; i < 2; i++) {
+                const noiseX = ((seed + i * 23) % this.tileSize);
+                const noiseY = ((seed * 2 + i * 17) % this.tileSize);
+                this.ctx.fillStyle = `rgba(20, 80, 20, 0.3)`;
+                this.ctx.fillRect(screenX + noiseX, screenY + noiseY, 2, 2);
+            }
+        } else if (tile.dug || tile.type === 'air') {
             // Air/dug tunnel - light gray background for visibility
             const variation = (x * 13 + y * 17) % 15;
             const lightness = 180 + variation;
@@ -910,6 +938,20 @@ class Game {
                 !this.getTile(x, y-1)?.dug || !this.getTile(x, y+1)?.dug) {
                 this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
                 this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+            }
+        } else if (tile.type === 'bedrock') {
+            // Bedrock - very dark gray/black, unbreakable
+            this.ctx.fillStyle = '#1a1a1a';
+            this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+
+            // Add bedrock texture with dark variations
+            const seed = x * 73 + y * 37;
+            for (let i = 0; i < 4; i++) {
+                const noiseX = ((seed + i * 23) % this.tileSize);
+                const noiseY = ((seed * 2 + i * 17) % this.tileSize);
+                const size = 2 + (seed % 2);
+                this.ctx.fillStyle = `rgba(40, 40, 40, 0.5)`;
+                this.ctx.fillRect(screenX + noiseX, screenY + noiseY, size, size);
             }
         } else {
             // Dirt with procedural texture
@@ -965,7 +1007,7 @@ class Game {
 
     canMove(x, y) {
         const tile = this.getTile(x, y);
-        return tile && (tile.dug || tile.type === 'air');
+        return tile && (tile.dug || tile.type === 'air' || tile.type === 'grass');
     }
 
     digTile(x, y, digPower = 1) {
@@ -973,6 +1015,7 @@ class Game {
         const ty = Math.floor(y);
         if (this.isValidTile(tx, ty)) {
             const tile = this.tiles[ty][tx];
+            // Can only dig dirt tiles (not bedrock, air, or grass)
             if (!tile.dug && tile.type === 'dirt') {
                 tile.digProgress = (tile.digProgress || 0) + digPower;
 
