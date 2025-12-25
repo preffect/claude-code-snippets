@@ -112,6 +112,7 @@ class Game {
         // Game objects
         this.player = null;
         this.colonies = []; // Array of Colony objects (player colony + enemy colonies)
+        this.enemies = []; // Array of EnemyAnt instances spawned by enemy queens
         this.foodSources = [];
 
         // Visual effects
@@ -699,6 +700,12 @@ class Game {
             }
         }
 
+        // Update enemy ants
+        if (this.enemies) {
+            this.enemies.forEach(enemy => enemy.update(dt, {}, this));
+            this.enemies = this.enemies.filter(e => e.alive);
+        }
+
         // Remove dead colonies (no queen)
         this.colonies = this.colonies.filter(c => c.queen && c.queen.alive);
 
@@ -871,6 +878,11 @@ class Game {
 
         // Render all colonies
         this.colonies.forEach(colony => colony.render(ctx, this.camera, this.tileSize, this));
+
+        // Render enemy ants
+        if (this.enemies) {
+            this.enemies.forEach(enemy => enemy.render(ctx, this.camera, this.tileSize, this));
+        }
 
         // Render player on top
         if (this.player) {
@@ -1696,11 +1708,30 @@ class WorkerAnt extends Ant {
         const workerDamage = this.isPlayer ? 30 : 15;
         const queenDamage = this.isPlayer ? 20 : 10;
 
+        // Check enemy ants (EnemyAnt instances stored in game.enemies)
+        if (game.enemies) {
+            for (const enemy of game.enemies) {
+                if (!enemy.alive || enemy === this) continue;
+
+                const dx = enemy.x - this.x;
+                const dy = enemy.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 1.5 && this.attackCooldown === 0) {
+                    enemy.takeDamage(workerDamage, game);
+                    this.attackCooldown = 0.5;
+                    game.spawnHitParticles(enemy.x, enemy.y);
+                    game.screenShake.intensity = 8;
+                    return; // Attack one enemy per frame
+                }
+            }
+        }
+
         for (const colony of game.colonies) {
             // Skip our own colony
             if (this.colony && colony.factionId === this.colony.factionId) continue;
 
-            // Check enemy workers
+            // Check enemy workers (WorkerAnt instances in colony.workers)
             for (const enemy of colony.workers) {
                 if (!enemy.alive || enemy === this) continue;
 
@@ -1713,7 +1744,7 @@ class WorkerAnt extends Ant {
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(enemy.x, enemy.y);
                     game.screenShake.intensity = 8;
-                    break; // Attack one enemy per frame
+                    return; // Attack one enemy per frame
                 }
             }
 
@@ -1728,7 +1759,7 @@ class WorkerAnt extends Ant {
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(colony.queen.x, colony.queen.y);
                     game.screenShake.intensity = 8;
-                    break;
+                    return;
                 }
             }
         }
