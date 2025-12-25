@@ -2007,8 +2007,8 @@ class EnemyAnt extends Ant {
         this.size = 0.5; // Slightly bigger
         this.speed = 2; // Slower than friendly workers (friendly workers have speed 3)
         this.queen = queen; // Reference to enemy queen
-        this.aggroRange = 5;
-        this.attackRange = 1.2; // Increased from 0.8 for more reliable combat
+        this.aggroRange = 8; // Increased from 5 for better detection
+        this.attackRange = 1.5; // Increased from 1.2 for more reliable combat
         this.attackCooldown = 0;
         this.target = null;
         this.wanderTimer = 0;
@@ -2078,10 +2078,17 @@ class EnemyAnt extends Ant {
             }
 
             this.target = nearest;
+
+            // Debug: log when chasing player
+            if (nearest === game.player && Math.random() < 0.01) {
+                console.log(`Enemy chasing player! Distance: ${nearestDist.toFixed(2)}, Attack range: ${this.attackRange}`);
+            }
+
             this.moveTowards(nearest.x, nearest.y, dt, game);
 
             if (nearestDist < this.attackRange && this.attackCooldown === 0) {
                 const damage = 8;
+                const healthBefore = nearest.health;
                 nearest.takeDamage(damage);
                 this.attackCooldown = 1;
                 game.spawnHitParticles(nearest.x, nearest.y);
@@ -2089,11 +2096,11 @@ class EnemyAnt extends Ant {
 
                 // Log attacks for debugging
                 if (nearest === game.player) {
-                    console.log(`Enemy attacked player! Player health: ${nearest.health}`);
+                    console.log(`Enemy attacked player! Health: ${healthBefore} -> ${nearest.health} (damage: ${damage})`);
                 } else if (nearest === game.queen) {
-                    console.log(`Enemy attacked queen! Queen health: ${nearest.health}`);
+                    console.log(`Enemy attacked queen! Health: ${healthBefore} -> ${nearest.health}`);
                 } else {
-                    console.log(`Enemy attacked worker! Worker health: ${nearest.health}`);
+                    console.log(`Enemy attacked worker! Health: ${healthBefore} -> ${nearest.health}`);
                 }
             }
         } else if (this.carryingFood && this.queen && this.queen.alive) {
@@ -2190,6 +2197,16 @@ class EnemyAnt extends Ant {
             if (game.canMove(newX, newY)) {
                 this.x = newX;
                 this.y = newY;
+            } else {
+                // Blocked - dig to clear path (enemy ants can dig)
+                // For diagonal movement, dig both X and Y directions
+                if (Math.abs(dirX) > 0.1 && Math.abs(dirY) > 0.1) {
+                    // Diagonal - dig both directions to prevent getting stuck
+                    game.digTile(this.x + dirX * 0.6, this.y, dt * 6);
+                    game.digTile(this.x, this.y + dirY * 0.6, dt * 6);
+                }
+                // Always dig in the movement direction
+                game.digTile(this.x + dirX * 0.6, this.y + dirY * 0.6, dt * 8);
             }
         }
     }
