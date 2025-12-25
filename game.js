@@ -1323,6 +1323,13 @@ class Game {
             for (let neighbor of neighbors) {
                 if (!this.canMove(neighbor.x, neighbor.y)) continue;
 
+                // Ants can't fly - prevent pathfinding above grass level (y < 8) unless climbing a plant
+                const neighborTile = this.getTile(neighbor.x, neighbor.y);
+                const isClimbingPlant = neighborTile && neighborTile.type === 'plant';
+                if (neighbor.y < 8 && !isClimbingPlant) {
+                    continue; // Can't path through air
+                }
+
                 const isDiagonal = neighbor.x !== current.x && neighbor.y !== current.y;
                 const tentativeG = (gScore.get(key(current.x, current.y)) || Infinity) + (isDiagonal ? 1.4 : 1);
 
