@@ -64,8 +64,12 @@ class Colony {
             this.queen.update(dt, game);
         }
 
-        // Update workers
-        this.workers.forEach(worker => worker.update(dt, {}, game));
+        // Update workers (skip player - they're updated separately in game.update())
+        this.workers.forEach(worker => {
+            if (!worker.isPlayer) {
+                worker.update(dt, {}, game);
+            }
+        });
 
         // Remove dead workers
         const before = this.workers.length;
