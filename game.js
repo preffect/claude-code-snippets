@@ -706,16 +706,16 @@ class Game {
         const screenY = y * this.tileSize - this.camera.y + this.screenShake.y;
 
         if (tile.dug || tile.type === 'air') {
-            // Air/dug tunnel with slight variation
-            const variation = (x * 13 + y * 17) % 10;
-            const darkness = 10 + variation;
-            this.ctx.fillStyle = `rgb(${darkness}, ${darkness * 0.5}, ${darkness * 0.5})`;
+            // Air/dug tunnel - light gray background for visibility
+            const variation = (x * 13 + y * 17) % 15;
+            const lightness = 180 + variation;
+            this.ctx.fillStyle = `rgb(${lightness}, ${lightness}, ${lightness})`;
             this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
 
-            // Add tunnel edges glow
+            // Add subtle tunnel edges shadow
             if (!this.getTile(x-1, y)?.dug || !this.getTile(x+1, y)?.dug ||
                 !this.getTile(x, y-1)?.dug || !this.getTile(x, y+1)?.dug) {
-                this.ctx.fillStyle = 'rgba(40, 20, 10, 0.3)';
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
                 this.ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
             }
         } else {
