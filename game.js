@@ -1486,6 +1486,9 @@ class Ant {
 class WorkerAnt extends Ant {
     constructor(x, y, isPlayer = false) {
         super(x, y, isPlayer);
+        if (isPlayer) {
+            this.speed = 9; // 3x faster for debugging
+        }
         this.color = '#8B4513'; // Saddle brown - much more visible
         this.size = 0.9; // 50% bigger than original (0.6) for better visibility
         this.carryingFood = false;
