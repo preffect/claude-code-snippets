@@ -685,6 +685,14 @@ class Game {
         this.player = new WorkerAnt(startX + 1, startY, true);
         playerColony.addWorker(this.player);
 
+        // Add one AI worker to help the player
+        const aiWorker = new WorkerAnt(
+            startX - 1 + (Math.random() - 0.5) * 2,
+            startY + (Math.random() - 0.5) * 2,
+            false
+        );
+        playerColony.addWorker(aiWorker);
+
         // Camera follows player
         this.updateCamera();
     }
