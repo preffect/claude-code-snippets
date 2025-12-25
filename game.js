@@ -1291,6 +1291,12 @@ class Queen extends Ant {
     }
 
     update(dt, game) {
+        // Initialize spawnTimer if it's NaN or undefined (for old saves)
+        if (isNaN(this.spawnTimer) || this.spawnTimer === undefined) {
+            this.spawnTimer = 0;
+            console.log('Initialized spawn timer');
+        }
+
         this.spawnTimer += dt;
 
         // Spawn new workers if we have food
