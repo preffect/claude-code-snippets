@@ -1708,6 +1708,12 @@ class WorkerAnt extends Ant {
         const workerDamage = this.isPlayer ? 30 : 15;
         const queenDamage = this.isPlayer ? 20 : 10;
 
+        if (this.isPlayer && Math.random() < 0.01) {
+            console.log('[PLAYER COMBAT] attackCooldown:', this.attackCooldown);
+            console.log('[PLAYER COMBAT] game.enemies:', game.enemies ? game.enemies.length : 'undefined');
+            console.log('[PLAYER COMBAT] game.colonies:', game.colonies.length);
+        }
+
         // Check enemy ants (EnemyAnt instances stored in game.enemies)
         if (game.enemies) {
             for (const enemy of game.enemies) {
@@ -1717,7 +1723,12 @@ class WorkerAnt extends Ant {
                 const dy = enemy.y - this.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
+                if (this.isPlayer && dist < 3) {
+                    console.log('[PLAYER] EnemyAnt nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2));
+                }
+
                 if (dist < 1.5 && this.attackCooldown === 0) {
+                    console.log('[PLAYER] ATTACKING ENEMY ANT!!!');
                     enemy.takeDamage(workerDamage, game);
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(enemy.x, enemy.y);
@@ -1739,7 +1750,12 @@ class WorkerAnt extends Ant {
                 const dy = enemy.y - this.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
+                if (this.isPlayer && dist < 3) {
+                    console.log('[PLAYER] WorkerAnt nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2));
+                }
+
                 if (dist < 1.5 && this.attackCooldown === 0) {
+                    console.log('[PLAYER] ATTACKING WORKER ANT!!!');
                     enemy.takeDamage(workerDamage, game);
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(enemy.x, enemy.y);
@@ -1754,7 +1770,12 @@ class WorkerAnt extends Ant {
                 const dy = colony.queen.y - this.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
+                if (this.isPlayer && dist < 3) {
+                    console.log('[PLAYER] Queen nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2));
+                }
+
                 if (dist < 1.5 && this.attackCooldown === 0) {
+                    console.log('[PLAYER] ATTACKING QUEEN!!!');
                     colony.queen.takeDamage(queenDamage, game);
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(colony.queen.x, colony.queen.y);
