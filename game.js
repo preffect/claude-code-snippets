@@ -1050,10 +1050,12 @@ class WorkerAnt extends Ant {
             const dy = game.queen.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist < 1.5) {
+            if (dist < 2.5) {
                 game.addFood(this.foodAmount);
                 this.foodAmount = 0;
                 this.carryingFood = false;
+                // Show delivery feedback particles
+                game.spawnFoodParticles(game.queen.x, game.queen.y);
             }
         }
     }
@@ -1068,12 +1070,14 @@ class WorkerAnt extends Ant {
             const dy = game.queen.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist < 1.5) {
+            if (dist < 2.5) {
                 game.addFood(this.foodAmount);
                 this.foodAmount = 0;
                 this.carryingFood = false;
                 this.targetFood = null;
                 this.state = 'idle';
+                // Show delivery feedback particles
+                game.spawnFoodParticles(game.queen.x, game.queen.y);
             }
         } else {
             // Find food
