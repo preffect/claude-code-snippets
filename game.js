@@ -1066,63 +1066,45 @@ class Joystick {
         this.active = false;
         this.x = 0;
         this.y = 0;
-        this.touchX = 0;
-        this.touchY = 0;
+        this.startX = 0; // Initial touch position (joystick center)
+        this.startY = 0;
+        this.currentX = 0; // Current touch position
+        this.currentY = 0;
         this.canvas = document.getElementById('gameCanvas');
-        this.game = null; // Will be set by game
+        this.maxRadius = 60; // Maximum distance stick can move from center
 
         this.setupEvents();
     }
 
     setupEvents() {
-        // Touch-anywhere controls for mobile
-        const handleTouch = (e) => {
+        const startTouch = (e) => {
+            e.preventDefault();
+            const touch = e.touches ? e.touches[0] : e;
+
+            // Set joystick center to touch position
+            this.startX = touch.clientX;
+            this.startY = touch.clientY;
+            this.currentX = touch.clientX;
+            this.currentY = touch.clientY;
+            this.active = true;
+
+            // Position joystick base at touch point
+            this.base.style.left = `${this.startX - 60}px`;
+            this.base.style.top = `${this.startY - 60}px`;
+            this.base.style.opacity = '0.7';
+
+            this.updateJoystick();
+        };
+
+        const moveTouch = (e) => {
             if (!this.active) return;
             e.preventDefault();
 
-            const touch = e.touches[0];
-            this.touchX = touch.clientX;
-            this.touchY = touch.clientY;
+            const touch = e.touches ? e.touches[0] : e;
+            this.currentX = touch.clientX;
+            this.currentY = touch.clientY;
 
-            // Calculate direction to touch point from player position
-            if (this.game && this.game.player) {
-                const canvas = this.canvas;
-                const camera = this.game.camera;
-                const tileSize = this.game.tileSize;
-
-                // Convert player world position to screen position
-                const playerScreenX = this.game.player.x * tileSize - camera.x + this.game.screenShake.x;
-                const playerScreenY = this.game.player.y * tileSize - camera.y + this.game.screenShake.y;
-
-                // Calculate direction from player to touch
-                const dx = this.touchX - playerScreenX;
-                const dy = this.touchY - playerScreenY;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist > 10) { // Minimum distance threshold
-                    this.x = dx / dist;
-                    this.y = dy / dist;
-
-                    // Move joystick visual to touch position
-                    this.base.style.left = `${this.touchX - 60}px`;
-                    this.base.style.top = `${this.touchY - 60}px`;
-                    this.base.style.opacity = '0.6';
-
-                    // Move stick to show direction
-                    const stickDx = (dx / dist) * 35;
-                    const stickDy = (dy / dist) * 35;
-                    this.stick.style.transform = `translate(calc(-50% + ${stickDx}px), calc(-50% + ${stickDy}px))`;
-                } else {
-                    this.x = 0;
-                    this.y = 0;
-                }
-            }
-        };
-
-        const startTouch = (e) => {
-            e.preventDefault();
-            this.active = true;
-            handleTouch(e);
+            this.updateJoystick();
         };
 
         const endTouch = (e) => {
@@ -1130,64 +1112,48 @@ class Joystick {
             this.active = false;
             this.x = 0;
             this.y = 0;
+
+            // Reset joystick visual
             this.stick.style.transform = 'translate(-50%, -50%)';
-            this.base.style.left = '20px';
-            this.base.style.top = '';
-            this.base.style.bottom = '20px';
-            this.base.style.opacity = '0.4';
+            this.base.style.opacity = '0';
         };
 
-        // Touch events on entire canvas for mobile
+        // Touch events
         this.canvas.addEventListener('touchstart', startTouch);
-        this.canvas.addEventListener('touchmove', handleTouch);
+        this.canvas.addEventListener('touchmove', moveTouch);
         this.canvas.addEventListener('touchend', endTouch);
         this.canvas.addEventListener('touchcancel', endTouch);
 
         // Mouse events for desktop testing
-        this.canvas.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            this.active = true;
-            this.touchX = e.clientX;
-            this.touchY = e.clientY;
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (!this.active) return;
-
-            this.touchX = e.clientX;
-            this.touchY = e.clientY;
-
-            // Same logic as touch
-            if (this.game && this.game.player) {
-                const camera = this.game.camera;
-                const tileSize = this.game.tileSize;
-
-                const playerScreenX = this.game.player.x * tileSize - camera.x + this.game.screenShake.x;
-                const playerScreenY = this.game.player.y * tileSize - camera.y + this.game.screenShake.y;
-
-                const dx = this.touchX - playerScreenX;
-                const dy = this.touchY - playerScreenY;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist > 10) {
-                    this.x = dx / dist;
-                    this.y = dy / dist;
-
-                    this.base.style.left = `${this.touchX - 60}px`;
-                    this.base.style.top = `${this.touchY - 60}px`;
-                    this.base.style.opacity = '0.6';
-
-                    const stickDx = (dx / dist) * 35;
-                    const stickDy = (dy / dist) * 35;
-                    this.stick.style.transform = `translate(calc(-50% + ${stickDx}px), calc(-50% + ${stickDy}px))`;
-                } else {
-                    this.x = 0;
-                    this.y = 0;
-                }
-            }
-        });
-
+        this.canvas.addEventListener('mousedown', startTouch);
+        window.addEventListener('mousemove', moveTouch);
         window.addEventListener('mouseup', endTouch);
+    }
+
+    updateJoystick() {
+        // Calculate offset from joystick center
+        const dx = this.currentX - this.startX;
+        const dy = this.currentY - this.startY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 5) { // Minimum threshold to register input
+            // Normalize direction
+            this.x = dx / distance;
+            this.y = dy / distance;
+
+            // Clamp stick position to maxRadius
+            const stickDistance = Math.min(distance, this.maxRadius);
+            const stickDx = (dx / distance) * stickDistance;
+            const stickDy = (dy / distance) * stickDistance;
+
+            // Move stick visual
+            this.stick.style.transform = `translate(calc(-50% + ${stickDx}px), calc(-50% + ${stickDy}px))`;
+        } else {
+            // Too close to center, no input
+            this.x = 0;
+            this.y = 0;
+            this.stick.style.transform = 'translate(-50%, -50%)';
+        }
     }
 
     getInput() {
