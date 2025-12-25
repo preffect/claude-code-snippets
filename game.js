@@ -1739,7 +1739,12 @@ class WorkerAnt extends Ant {
                 const dy = enemy.y - this.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
-                if (dist < 1.5 && this.attackCooldown === 0) {
+                if (this.isPlayer && dist < 3) {
+                    console.log('[PLAYER] WorkerAnt nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2));
+                }
+
+                if (dist < 1.5 && this.attackCooldown <= 0) {
+                    console.log('[PLAYER] ATTACKING WORKER ANT!!!');
                     enemy.takeDamage(workerDamage, game);
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(enemy.x, enemy.y);
@@ -1754,7 +1759,12 @@ class WorkerAnt extends Ant {
                 const dy = colony.queen.y - this.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
-                if (dist < 1.5 && this.attackCooldown === 0) {
+                if (this.isPlayer && dist < 3) {
+                    console.log('[PLAYER] Queen nearby! dist:', dist.toFixed(2), 'cooldown:', this.attackCooldown.toFixed(2));
+                }
+
+                if (dist < 1.5 && this.attackCooldown <= 0) {
+                    console.log('[PLAYER] ATTACKING QUEEN!!!');
                     colony.queen.takeDamage(queenDamage, game);
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(colony.queen.x, colony.queen.y);
