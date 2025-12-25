@@ -13,8 +13,8 @@ class Game {
 
         // World grid (tiles)
         this.tileSize = 20;
-        this.worldWidth = 80;
-        this.worldHeight = 60;
+        this.worldWidth = 400;
+        this.worldHeight = 300;
         this.tiles = [];
 
         // Camera
@@ -25,6 +25,7 @@ class Game {
         this.queen = null;
         this.workers = [];
         this.enemies = [];
+        this.enemyQueens = [];
         this.foodSources = [];
         this.colonyFood = 0;
 
@@ -422,9 +423,9 @@ class Game {
                         }
                     }
                     // Good cave spot: has enough open space around it
-                    // Not the starting chamber (too close to center)
+                    // Allow food to spawn closer to start (reduced from 10 to 5)
                     const distFromStart = Math.abs(x - this.worldWidth / 2);
-                    if (openCount > 8 && distFromStart > 10) {
+                    if (openCount > 8 && distFromStart > 5) {
                         caveSpots.push({ x: x + 0.5, y: y + 0.5 });
                     }
                 }
@@ -470,7 +471,7 @@ class Game {
                         // Make sure not too close to starting area
                         const startX = this.worldWidth / 2;
                         const dist = Math.abs(x - startX);
-                        if (dist > 15) {
+                        if (dist > 30) {
                             nestSpots.push({ x: x + 0.5, y: y + 0.5 });
                         }
                     }
@@ -478,17 +479,21 @@ class Game {
             }
         }
 
-        // Spawn enemies in random nest spots
+        // Spawn enemy queens with workers in random nest spots
         for (let i = 0; i < Math.min(count, nestSpots.length); i++) {
             const spot = nestSpots[Math.floor(Math.random() * nestSpots.length)];
 
-            // Spawn 2-5 enemy ants per nest
-            const enemyCount = 2 + Math.floor(Math.random() * 4);
+            // Spawn enemy queen
+            const enemyQueen = new EnemyQueen(spot.x, spot.y);
+            this.enemyQueens.push(enemyQueen);
+
+            // Spawn 2-4 enemy worker ants per nest
+            const enemyCount = 2 + Math.floor(Math.random() * 3);
             for (let j = 0; j < enemyCount; j++) {
                 this.enemies.push(new EnemyAnt(
                     spot.x + (Math.random() - 0.5) * 4,
                     spot.y + (Math.random() - 0.5) * 4,
-                    spot.x, spot.y, 5 // nest position and radius
+                    enemyQueen
                 ));
             }
 
@@ -497,7 +502,7 @@ class Game {
         }
 
         // Debug: log how many enemies we spawned
-        console.log(`Spawned ${this.enemies.length} enemy ants in ${Math.min(count, nestSpots.length)} nests`);
+        console.log(`Spawned ${this.enemyQueens.length} enemy queens with ${this.enemies.length} worker ants total`);
     }
 
     createColony() {
@@ -571,11 +576,15 @@ class Game {
         // Update AI workers
         this.workers.forEach(worker => worker.update(dt, {}, this));
 
+        // Update enemy queens
+        this.enemyQueens.forEach(queen => queen.update(dt, this));
+
         // Update enemies
         this.enemies.forEach(enemy => enemy.update(dt, {}, this));
 
-        // Remove dead enemies
+        // Remove dead enemies and queens
         this.enemies = this.enemies.filter(e => e.alive);
+        this.enemyQueens = this.enemyQueens.filter(q => q.alive);
 
         // Remove dead workers
         const workersBefore = this.workers.length;
@@ -691,6 +700,9 @@ class Game {
         if (this.queen) {
             this.queen.render(ctx, this.camera, this.tileSize, this);
         }
+
+        // Render enemy queens
+        this.enemyQueens.forEach(queen => queen.render(ctx, this.camera, this.tileSize, this));
 
         // Render workers
         this.workers.forEach(worker => worker.render(ctx, this.camera, this.tileSize, this));
@@ -1802,14 +1814,199 @@ class Queen extends Ant {
     }
 }
 
+class EnemyQueen extends Ant {
+    constructor(x, y) {
+        super(x, y, false);
+        this.color = '#8B0000'; // Dark red for enemy queen
+        this.size = 0.8;
+        this.maxHealth = 200;
+        this.health = 200;
+        this.spawnTimer = 0;
+        this.spawnCooldown = 15; // Slower spawning than friendly queen
+        this.foodPerWorker = 25; // Requires more food
+        this.food = 0; // Enemy queen's food storage
+    }
+
+    update(dt, game) {
+        if (!this.alive) return;
+
+        // Initialize spawnTimer if needed
+        if (isNaN(this.spawnTimer) || this.spawnTimer === undefined) {
+            this.spawnTimer = 0;
+        }
+
+        this.spawnTimer += dt;
+
+        // Spawn new workers if we have food
+        if (this.spawnTimer >= this.spawnCooldown && this.food >= this.foodPerWorker) {
+            console.log(`Enemy queen spawning worker! Food: ${this.food}`);
+            this.food -= this.foodPerWorker;
+            this.spawnEnemyWorker(game);
+            this.spawnTimer = 0;
+        }
+    }
+
+    spawnEnemyWorker(game) {
+        // Try to spawn in a valid location near queen
+        let spawnX = this.x;
+        let spawnY = this.y;
+
+        // Try a few random positions around the queen
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const testX = this.x + (Math.random() - 0.5) * 2;
+            const testY = this.y + (Math.random() - 0.5) * 2;
+
+            if (game.canMove(testX, testY)) {
+                spawnX = testX;
+                spawnY = testY;
+                break;
+            }
+        }
+
+        const newWorker = new EnemyAnt(spawnX, spawnY, this);
+        game.enemies.push(newWorker);
+        console.log(`Enemy worker spawned! Total enemy workers: ${game.enemies.length}`);
+    }
+
+    render(ctx, camera, tileSize, game = null) {
+        const shakeX = game ? game.screenShake.x : 0;
+        const shakeY = game ? game.screenShake.y : 0;
+        const screenX = this.x * tileSize - camera.x + shakeX;
+        const screenY = this.y * tileSize - camera.y + shakeY;
+        const size = this.size * tileSize;
+
+        ctx.save();
+
+        // Dark red evil glow aura
+        const pulse = Math.sin(Date.now() / 500) * 0.2 + 0.8;
+        const auraGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, size * 1.5 * pulse);
+        auraGradient.addColorStop(0, 'rgba(139, 0, 0, 0.4)');
+        auraGradient.addColorStop(0.5, 'rgba(139, 0, 0, 0.2)');
+        auraGradient.addColorStop(1, 'rgba(139, 0, 0, 0)');
+        ctx.fillStyle = auraGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, size * 1.5 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.beginPath();
+        ctx.ellipse(screenX + 3, screenY + size * 0.6, size * 1.0, size * 0.4, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Legs (more legs for queen)
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 4; i++) {
+            const legOffset = (i - 1.5) * size * 0.25;
+            // Left legs
+            ctx.beginPath();
+            ctx.moveTo(screenX - size * 0.6, screenY + legOffset);
+            ctx.lineTo(screenX - size * 1.0, screenY + legOffset + size * 0.5);
+            ctx.stroke();
+            // Right legs
+            ctx.beginPath();
+            ctx.moveTo(screenX + size * 0.6, screenY + legOffset);
+            ctx.lineTo(screenX + size * 1.0, screenY + legOffset + size * 0.5);
+            ctx.stroke();
+        }
+
+        // Large segmented abdomen
+        for (let i = 0; i < 3; i++) {
+            const segmentY = screenY + size * 0.3 + i * size * 0.25;
+            const segmentSize = (0.9 - i * 0.1);
+            const abdomenGradient = ctx.createRadialGradient(screenX, segmentY, 0, screenX, segmentY, size * 0.8 * segmentSize);
+            abdomenGradient.addColorStop(0, '#A52A2A');
+            abdomenGradient.addColorStop(0.5, this.color);
+            abdomenGradient.addColorStop(1, '#000000');
+            ctx.fillStyle = abdomenGradient;
+            ctx.beginPath();
+            ctx.ellipse(screenX, segmentY, size * 0.8 * segmentSize, size * 0.5 * segmentSize, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Segment shine
+            ctx.fillStyle = 'rgba(255, 100, 100, 0.1)';
+            ctx.beginPath();
+            ctx.ellipse(screenX - size * 0.3, segmentY - size * 0.1, size * 0.3, size * 0.2, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Thorax
+        const thoraxGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, size * 0.6);
+        thoraxGradient.addColorStop(0, '#A52A2A');
+        thoraxGradient.addColorStop(0.5, this.color);
+        thoraxGradient.addColorStop(1, '#000000');
+        ctx.fillStyle = thoraxGradient;
+        ctx.beginPath();
+        ctx.ellipse(screenX, screenY, size * 0.6, size * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Head with gradient
+        const headGradient = ctx.createRadialGradient(screenX, screenY - size * 0.45, size * 0.15, screenX, screenY - size * 0.45, size * 0.45);
+        headGradient.addColorStop(0, '#A52A2A');
+        headGradient.addColorStop(0.5, this.color);
+        headGradient.addColorStop(1, '#000000');
+        ctx.fillStyle = headGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY - size * 0.45, size * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyes (glowing red compound eyes)
+        ctx.fillStyle = '#FF0000';
+        ctx.beginPath();
+        ctx.arc(screenX - size * 0.25, screenY - size * 0.5, size * 0.12, 0, Math.PI * 2);
+        ctx.arc(screenX + size * 0.25, screenY - size * 0.5, size * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eye glow
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+        ctx.beginPath();
+        ctx.arc(screenX - size * 0.22, screenY - size * 0.53, size * 0.05, 0, Math.PI * 2);
+        ctx.arc(screenX + size * 0.28, screenY - size * 0.53, size * 0.05, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Antennae
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(screenX - size * 0.2, screenY - size * 0.75);
+        ctx.quadraticCurveTo(screenX - size * 0.4, screenY - size * 1.0, screenX - size * 0.6, screenY - size * 1.1);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(screenX + size * 0.2, screenY - size * 0.75);
+        ctx.quadraticCurveTo(screenX + size * 0.4, screenY - size * 1.0, screenX + size * 0.6, screenY - size * 1.1);
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Health bar
+        const barWidth = size * 2.5;
+        const barHeight = 5;
+        const barX = screenX - barWidth / 2;
+        const barY = screenY - size * 1.3;
+
+        // Bar background
+        ctx.fillStyle = '#222';
+        ctx.fillRect(barX - 1, barY - 1, barWidth + 2, barHeight + 2);
+
+        // Bar fill
+        ctx.fillStyle = '#f00';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        const healthGradient = ctx.createLinearGradient(barX, barY, barX + barWidth * (this.health / this.maxHealth), barY);
+        healthGradient.addColorStop(0, '#f00');
+        healthGradient.addColorStop(1, '#f00');
+        ctx.fillStyle = healthGradient;
+        ctx.fillRect(barX, barY, barWidth * (this.health / this.maxHealth), barHeight);
+    }
+}
+
 class EnemyAnt extends Ant {
-    constructor(x, y, nestX, nestY, nestRadius) {
+    constructor(x, y, queen) {
         super(x, y, false);
         this.color = '#FF0000'; // Bright red - very menacing
         this.size = 0.5; // Slightly bigger
-        this.nestX = nestX;
-        this.nestY = nestY;
-        this.nestRadius = nestRadius;
+        this.speed = 2; // Slower than friendly workers (friendly workers have speed 3)
+        this.queen = queen; // Reference to enemy queen
         this.aggroRange = 5;
         this.attackRange = 1.2; // Increased from 0.8 for more reliable combat
         this.attackCooldown = 0;
@@ -1817,6 +2014,10 @@ class EnemyAnt extends Ant {
         this.wanderTimer = 0;
         this.wanderX = x;
         this.wanderY = y;
+        this.carryingFood = false;
+        this.foodAmount = 0;
+        this.targetFood = null;
+        this.state = 'idle';
     }
 
     update(dt, input, game) {
@@ -1825,7 +2026,8 @@ class EnemyAnt extends Ant {
         this.attackCooldown = Math.max(0, this.attackCooldown - dt);
         this.wanderTimer -= dt;
 
-        // Find nearest friendly ant
+        // Enemy worker AI: prioritize fighting over food gathering
+        // First check if any friendly ants are nearby to attack
         let nearest = null;
         let nearestDist = Infinity;
 
@@ -1868,7 +2070,13 @@ class EnemyAnt extends Ant {
         }
 
         if (nearest) {
-            // Attack mode
+            // Attack mode - drop food if carrying to attack
+            if (this.carryingFood) {
+                this.carryingFood = false;
+                this.foodAmount = 0;
+                this.targetFood = null;
+            }
+
             this.target = nearest;
             this.moveTowards(nearest.x, nearest.y, dt, game);
 
@@ -1888,24 +2096,81 @@ class EnemyAnt extends Ant {
                     console.log(`Enemy attacked worker! Worker health: ${nearest.health}`);
                 }
             }
-        } else {
-            // Patrol near nest
-            const dx = this.nestX - this.x;
-            const dy = this.nestY - this.y;
-            const distFromNest = Math.sqrt(dx * dx + dy * dy);
+        } else if (this.carryingFood && this.queen && this.queen.alive) {
+            // Return food to enemy queen
+            this.moveTowards(this.queen.x, this.queen.y, dt, game);
 
-            if (distFromNest > this.nestRadius * 2) {
-                // Return to nest
-                this.moveTowards(this.nestX, this.nestY, dt, game);
-            } else {
-                // Wander
-                if (this.wanderTimer <= 0) {
-                    const angle = Math.random() * Math.PI * 2;
-                    this.wanderX = this.nestX + Math.cos(angle) * this.nestRadius;
-                    this.wanderY = this.nestY + Math.sin(angle) * this.nestRadius;
-                    this.wanderTimer = 3 + Math.random() * 2;
+            const dx = this.queen.x - this.x;
+            const dy = this.queen.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 2.5) {
+                this.queen.food += this.foodAmount;
+                console.log(`Enemy worker delivered ${this.foodAmount} food to queen! Queen food: ${this.queen.food}`);
+                this.foodAmount = 0;
+                this.carryingFood = false;
+                this.targetFood = null;
+                this.state = 'idle';
+                game.spawnFoodParticles(this.queen.x, this.queen.y);
+            }
+        } else if (!this.carryingFood) {
+            // Look for food
+            if (!this.targetFood || this.targetFood.amount === 0) {
+                // Find nearest food
+                let nearestFood = null;
+                let nearestFoodDist = Infinity;
+
+                for (let food of game.foodSources) {
+                    if (food.amount > 0) {
+                        const dx = food.x - this.x;
+                        const dy = food.y - this.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < nearestFoodDist) {
+                            nearestFoodDist = dist;
+                            nearestFood = food;
+                        }
+                    }
                 }
-                this.moveTowards(this.wanderX, this.wanderY, dt, game);
+
+                this.targetFood = nearestFood;
+            }
+
+            if (this.targetFood) {
+                this.moveTowards(this.targetFood.x, this.targetFood.y, dt, game);
+
+                const dx = this.targetFood.x - this.x;
+                const dy = this.targetFood.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 1.5 && this.targetFood.amount > 0) {
+                    const taken = Math.min(10, this.targetFood.amount);
+                    this.targetFood.amount -= taken;
+                    this.foodAmount = taken;
+                    this.carryingFood = true;
+                    this.state = 'carrying';
+                    game.spawnFoodParticles(this.x, this.y);
+                    console.log(`Enemy worker picked up ${taken} food!`);
+                }
+            } else if (this.queen && this.queen.alive) {
+                // Wander near queen
+                const dx = this.queen.x - this.x;
+                const dy = this.queen.y - this.y;
+                const distFromQueen = Math.sqrt(dx * dx + dy * dy);
+
+                if (distFromQueen > 10) {
+                    // Return to queen area
+                    this.moveTowards(this.queen.x, this.queen.y, dt, game);
+                } else {
+                    // Wander
+                    if (this.wanderTimer <= 0) {
+                        const angle = Math.random() * Math.PI * 2;
+                        this.wanderX = this.queen.x + Math.cos(angle) * 8;
+                        this.wanderY = this.queen.y + Math.sin(angle) * 8;
+                        this.wanderTimer = 3 + Math.random() * 2;
+                    }
+                    this.moveTowards(this.wanderX, this.wanderY, dt, game);
+                }
             }
         }
     }
