@@ -122,17 +122,61 @@ class Game {
     }
 
     generateCaveSystems() {
-        // Create multiple cave systems at different depths
-        const caveSeeds = [
-            { x: 15, y: 20, size: 8 },
-            { x: 60, y: 25, size: 10 },
-            { x: 35, y: 35, size: 12 },
-            { x: 50, y: 45, size: 10 },
-            { x: 20, y: 50, size: 9 }
-        ];
+        // Generate random cave systems at different depths
+        const caves = [];
 
-        for (let seed of caveSeeds) {
-            this.generateCave(seed.x, seed.y, seed.size);
+        // Generate 8-12 random caves
+        const caveCount = 8 + Math.floor(Math.random() * 5);
+
+        for (let i = 0; i < caveCount; i++) {
+            const depth = 15 + i * 5 + Math.floor(Math.random() * 8);
+            const x = 10 + Math.floor(Math.random() * (this.worldWidth - 20));
+            const y = Math.min(depth, this.worldHeight - 10);
+
+            // Vary cave sizes based on depth
+            const baseSize = 6 + Math.floor(Math.random() * 8);
+            const depthBonus = Math.floor(y / 15);
+            const size = baseSize + depthBonus;
+
+            // Different cave types
+            const type = Math.random();
+            let caveType = 'chamber';
+            if (type < 0.3) caveType = 'tunnel';
+            else if (type < 0.5) caveType = 'vertical';
+            else if (type < 0.7) caveType = 'chamber';
+            else caveType = 'complex';
+
+            caves.push({ x, y, size, type: caveType });
+        }
+
+        // Generate caves
+        for (let cave of caves) {
+            if (cave.type === 'chamber') {
+                this.generateCave(cave.x, cave.y, cave.size);
+            } else if (cave.type === 'tunnel') {
+                this.generateTunnelCave(cave.x, cave.y, cave.size);
+            } else if (cave.type === 'vertical') {
+                this.generateVerticalCave(cave.x, cave.y, cave.size);
+            } else if (cave.type === 'complex') {
+                this.generateComplexCave(cave.x, cave.y, cave.size);
+            }
+        }
+
+        // Connect some caves with tunnels
+        for (let i = 0; i < caves.length - 1; i++) {
+            if (Math.random() < 0.4) {
+                const cave1 = caves[i];
+                const cave2 = caves[i + 1];
+                this.generateConnectingTunnel(cave1.x, cave1.y, cave2.x, cave2.y);
+            }
+        }
+
+        // Add some random vertical shafts
+        for (let i = 0; i < 3; i++) {
+            const x = 15 + Math.floor(Math.random() * (this.worldWidth - 30));
+            const startY = 15 + Math.floor(Math.random() * 10);
+            const length = 10 + Math.floor(Math.random() * 20);
+            this.generateShaft(x, startY, length);
         }
     }
 
@@ -220,6 +264,141 @@ class Game {
             }
         }
         return count;
+    }
+
+    generateTunnelCave(startX, startY, length) {
+        // Generate a winding horizontal tunnel
+        let x = startX;
+        let y = startY;
+        const segments = 3 + Math.floor(Math.random() * 4);
+
+        for (let seg = 0; seg < segments; seg++) {
+            const segLength = length + Math.floor(Math.random() * length);
+            const endX = x + (Math.random() - 0.5) * segLength;
+            const endY = y + (Math.random() - 0.5) * (length / 2);
+
+            this.carveTunnel(x, y, endX, endY, 2 + Math.floor(Math.random() * 2));
+            x = endX;
+            y = endY;
+        }
+    }
+
+    generateVerticalCave(centerX, startY, height) {
+        // Generate a vertical shaft with some variation
+        let x = centerX;
+        const segments = 2 + Math.floor(Math.random() * 3);
+        const segHeight = height / segments;
+
+        for (let seg = 0; seg < segments; seg++) {
+            const y1 = startY + seg * segHeight;
+            const y2 = startY + (seg + 1) * segHeight;
+            const endX = x + (Math.random() - 0.5) * 6;
+
+            this.carveTunnel(x, y1, endX, y2, 2 + Math.floor(Math.random() * 2));
+            x = endX;
+
+            // Add small chambers occasionally
+            if (Math.random() < 0.5) {
+                this.generateCave(x, y2, 3 + Math.floor(Math.random() * 3));
+            }
+        }
+    }
+
+    generateComplexCave(centerX, centerY, size) {
+        // Generate a complex cave with multiple chambers connected by tunnels
+        const chambers = 3 + Math.floor(Math.random() * 3);
+        const chamberPositions = [];
+
+        // Generate main chamber
+        this.generateCave(centerX, centerY, size);
+        chamberPositions.push({ x: centerX, y: centerY });
+
+        // Generate satellite chambers
+        for (let i = 0; i < chambers; i++) {
+            const angle = (i / chambers) * Math.PI * 2 + Math.random() * 0.5;
+            const dist = size + Math.random() * size * 2;
+            const x = centerX + Math.cos(angle) * dist;
+            const y = centerY + Math.sin(angle) * dist;
+            const chamberSize = Math.floor(size * 0.5) + Math.floor(Math.random() * size * 0.5);
+
+            this.generateCave(x, y, chamberSize);
+            chamberPositions.push({ x, y });
+
+            // Connect to previous chamber
+            if (i > 0) {
+                const prev = chamberPositions[i];
+                this.carveTunnel(prev.x, prev.y, x, y, 1 + Math.floor(Math.random() * 2));
+            }
+        }
+
+        // Connect some random chambers
+        for (let i = 0; i < Math.floor(chambers / 2); i++) {
+            const c1 = chamberPositions[Math.floor(Math.random() * chamberPositions.length)];
+            const c2 = chamberPositions[Math.floor(Math.random() * chamberPositions.length)];
+            if (c1 !== c2) {
+                this.carveTunnel(c1.x, c1.y, c2.x, c2.y, 1);
+            }
+        }
+    }
+
+    generateConnectingTunnel(x1, y1, x2, y2) {
+        // Generate a tunnel connecting two points with some variation
+        const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * 10;
+        const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * 10;
+
+        this.carveTunnel(x1, y1, midX, midY, 1 + Math.floor(Math.random() * 2));
+        this.carveTunnel(midX, midY, x2, y2, 1 + Math.floor(Math.random() * 2));
+    }
+
+    generateShaft(x, startY, length) {
+        // Generate a mostly vertical shaft
+        let currentY = startY;
+        const endY = Math.min(startY + length, this.worldHeight - 5);
+
+        while (currentY < endY) {
+            const segLength = 3 + Math.floor(Math.random() * 5);
+            const nextY = Math.min(currentY + segLength, endY);
+            const nextX = x + (Math.random() - 0.5) * 2;
+
+            this.carveTunnel(x, currentY, nextX, nextY, 1 + Math.floor(Math.random() * 1));
+
+            // Small platform occasionally
+            if (Math.random() < 0.3) {
+                this.carveTunnel(nextX - 2, nextY, nextX + 2, nextY, 1);
+            }
+
+            x = nextX;
+            currentY = nextY;
+        }
+    }
+
+    carveTunnel(x1, y1, x2, y2, width) {
+        // Carve a tunnel from (x1, y1) to (x2, y2) with given width
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const steps = Math.ceil(dist);
+
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const x = Math.floor(x1 + dx * t);
+            const y = Math.floor(y1 + dy * t);
+
+            // Carve circle at this point
+            for (let oy = -width; oy <= width; oy++) {
+                for (let ox = -width; ox <= width; ox++) {
+                    const distFromCenter = Math.sqrt(ox * ox + oy * oy);
+                    if (distFromCenter <= width) {
+                        const tx = x + ox;
+                        const ty = y + oy;
+                        if (this.isValidTile(tx, ty) && ty >= 10) {
+                            this.tiles[ty][tx].dug = true;
+                            this.tiles[ty][tx].type = 'air';
+                        }
+                    }
+                }
+            }
+        }
     }
 
     spawnFoodInCaves(count) {
