@@ -1688,6 +1688,10 @@ class WorkerAnt extends Ant {
 
     checkCombat(dt, game) {
         // Attack workers and queens from other factions
+        // Player deals 2x damage
+        const workerDamage = this.isPlayer ? 30 : 15;
+        const queenDamage = this.isPlayer ? 20 : 10;
+
         for (const colony of game.colonies) {
             // Skip our own colony
             if (this.colony && colony.factionId === this.colony.factionId) continue;
@@ -1701,7 +1705,7 @@ class WorkerAnt extends Ant {
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < 1.5 && this.attackCooldown === 0) {
-                    enemy.takeDamage(15, game);
+                    enemy.takeDamage(workerDamage, game);
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(enemy.x, enemy.y);
                     game.screenShake.intensity = 8;
@@ -1716,7 +1720,7 @@ class WorkerAnt extends Ant {
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < 1.5 && this.attackCooldown === 0) {
-                    colony.queen.takeDamage(10, game); // Less damage to queens
+                    colony.queen.takeDamage(queenDamage, game);
                     this.attackCooldown = 0.5;
                     game.spawnHitParticles(colony.queen.x, colony.queen.y);
                     game.screenShake.intensity = 8;
