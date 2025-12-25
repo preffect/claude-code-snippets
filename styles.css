@@ -48,6 +48,13 @@ body {
     pointer-events: none;
 }
 
+#top-bar {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
 #stats {
     display: flex;
     gap: 20px;
@@ -75,12 +82,13 @@ body {
 }
 
 #controls-hint {
-    margin-top: 10px;
     background: rgba(0, 0, 0, 0.6);
     padding: 8px 12px;
     border-radius: 6px;
     font-size: 0.9em;
     text-align: center;
+    flex: 1;
+    min-width: 200px;
 }
 
 /* Factions Menu */
