@@ -1686,41 +1686,57 @@ class WorkerAnt extends Ant {
             const targetTile = game.getTile(newX, newY);
             const isClimbingPlant = newY < 8 && targetTile && targetTile.type === 'plant';
 
+            let moved = false;
+
+            // Try primary direction first
             if ((newY >= 8 || isClimbingPlant) && game.canMove(newX, newY)) {
                 this.x = newX;
                 this.y = newY;
-            } else if (newY < 8 && !isClimbingPlant) {
-                // Can't move into air - do nothing
+                moved = true;
             } else {
-                // Blocked in primary direction - try alternative directions
-                let moved = false;
+                // Blocked in primary direction or can't fly - try alternative directions
 
-                // Try moving just horizontally (X direction)
-                const tryX = this.x + input.x * this.speed * dt;
-                const tryXTile = game.getTile(tryX, this.y);
-                const isXClimbingPlant = tryXTile && tryXTile.type === 'plant';
-                if (this.y >= 8 || isXClimbingPlant) {
-                    if (game.canMove(tryX, this.y)) {
-                        this.x = tryX;
-                        moved = true;
-                    }
-                }
-
-                // If horizontal didn't work, try moving just vertically (Y direction)
-                if (!moved) {
-                    const tryY = this.y + input.y * this.speed * dt;
-                    const tryYTile = game.getTile(this.x, tryY);
-                    const isYClimbingPlant = tryYTile && tryYTile.type === 'plant';
-                    if (tryY >= 8 || isYClimbingPlant) {
-                        if (game.canMove(this.x, tryY)) {
-                            this.y = tryY;
+                // If we're trying to move up but can't fly, move horizontally instead
+                if (newY < 8 && !isClimbingPlant) {
+                    // Can't move upward due to flight restriction - try horizontal movement only
+                    if (Math.abs(input.x) > 0.01) {
+                        const tryX = this.x + input.x * this.speed * dt;
+                        if (game.canMove(tryX, this.y)) {
+                            this.x = tryX;
                             moved = true;
+                        }
+                    }
+                } else {
+                    // Not a flight issue, just blocked by terrain
+                    // Try moving just horizontally (X direction)
+                    if (Math.abs(input.x) > 0.01) {
+                        const tryX = this.x + input.x * this.speed * dt;
+                        const tryXTile = game.getTile(tryX, this.y);
+                        const isXClimbingPlant = tryXTile && tryXTile.type === 'plant';
+                        if (this.y >= 8 || isXClimbingPlant) {
+                            if (game.canMove(tryX, this.y)) {
+                                this.x = tryX;
+                                moved = true;
+                            }
+                        }
+                    }
+
+                    // If horizontal didn't work, try moving just vertically (Y direction)
+                    if (!moved && Math.abs(input.y) > 0.01) {
+                        const tryY = this.y + input.y * this.speed * dt;
+                        const tryYTile = game.getTile(this.x, tryY);
+                        const isYClimbingPlant = tryYTile && tryYTile.type === 'plant';
+                        if (tryY >= 8 || isYClimbingPlant) {
+                            if (game.canMove(this.x, tryY)) {
+                                this.y = tryY;
+                                moved = true;
+                            }
                         }
                     }
                 }
 
-                // If still can't move, dig to clear path
-                if (!moved) {
+                // If still can't move, dig to clear path (only if we're underground)
+                if (!moved && this.y >= 8) {
                     // For diagonal movement, dig both X and Y blocking tiles
                     if (Math.abs(input.x) > 0.1 && Math.abs(input.y) > 0.1) {
                         // Diagonal - dig both directions to prevent getting stuck
@@ -1889,43 +1905,58 @@ class WorkerAnt extends Ant {
             // Ants can't fly - prevent movement above grass level (y < 8) unless climbing a plant
             const targetTile = game.getTile(newX, newY);
             const isClimbingPlant = targetTile && targetTile.type === 'plant';
-            if (newY < 8 && !isClimbingPlant) {
-                return;
-            }
 
-            if (game.canMove(newX, newY)) {
+            let moved = false;
+
+            // Try primary direction first
+            if ((newY >= 8 || isClimbingPlant) && game.canMove(newX, newY)) {
                 this.x = newX;
                 this.y = newY;
+                moved = true;
             } else {
-                // Blocked in primary direction - try alternative directions to make progress
-                let moved = false;
+                // Blocked in primary direction or can't fly - try alternative directions
 
-                // Try moving just horizontally (X direction)
-                const tryX = this.x + dirX * this.speed * dt;
-                const tryXTile = game.getTile(tryX, this.y);
-                const isXClimbingPlant = tryXTile && tryXTile.type === 'plant';
-                if (this.y >= 8 || isXClimbingPlant) {
-                    if (game.canMove(tryX, this.y)) {
-                        this.x = tryX;
-                        moved = true;
-                    }
-                }
-
-                // If horizontal didn't work, try moving just vertically (Y direction)
-                if (!moved) {
-                    const tryY = this.y + dirY * this.speed * dt;
-                    const tryYTile = game.getTile(this.x, tryY);
-                    const isYClimbingPlant = tryYTile && tryYTile.type === 'plant';
-                    if (tryY >= 8 || isYClimbingPlant) {
-                        if (game.canMove(this.x, tryY)) {
-                            this.y = tryY;
+                // If we're trying to move up but can't fly, move horizontally instead
+                if (newY < 8 && !isClimbingPlant) {
+                    // Can't move upward due to flight restriction - try horizontal movement only
+                    if (Math.abs(dirX) > 0.01) {
+                        const tryX = this.x + dirX * this.speed * dt;
+                        if (game.canMove(tryX, this.y)) {
+                            this.x = tryX;
                             moved = true;
+                        }
+                    }
+                } else {
+                    // Not a flight issue, just blocked by terrain
+                    // Try moving just horizontally (X direction)
+                    if (Math.abs(dirX) > 0.01) {
+                        const tryX = this.x + dirX * this.speed * dt;
+                        const tryXTile = game.getTile(tryX, this.y);
+                        const isXClimbingPlant = tryXTile && tryXTile.type === 'plant';
+                        if (this.y >= 8 || isXClimbingPlant) {
+                            if (game.canMove(tryX, this.y)) {
+                                this.x = tryX;
+                                moved = true;
+                            }
+                        }
+                    }
+
+                    // If horizontal didn't work, try moving just vertically (Y direction)
+                    if (!moved && Math.abs(dirY) > 0.01) {
+                        const tryY = this.y + dirY * this.speed * dt;
+                        const tryYTile = game.getTile(this.x, tryY);
+                        const isYClimbingPlant = tryYTile && tryYTile.type === 'plant';
+                        if (tryY >= 8 || isYClimbingPlant) {
+                            if (game.canMove(this.x, tryY)) {
+                                this.y = tryY;
+                                moved = true;
+                            }
                         }
                     }
                 }
 
-                // If still can't move, dig to clear path
-                if (!moved) {
+                // If still can't move, dig to clear path (only if we're underground)
+                if (!moved && this.y >= 8) {
                     // For diagonal movement, dig both X and Y directions
                     if (Math.abs(dirX) > 0.1 && Math.abs(dirY) > 0.1) {
                         // Diagonal - dig both directions to prevent getting stuck
