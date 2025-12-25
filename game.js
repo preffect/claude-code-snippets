@@ -562,15 +562,19 @@ class Game {
         // Update player
         if (this.player && this.player.alive) {
             this.player.update(dt, input, this);
-        } else if (!this.player.alive) {
+        } else if (this.player && !this.player.alive) {
             // Game over
             this.running = false;
             alert('Your ant died! Game Over. Refresh to play again.');
         }
 
-        // Update queen
+        // Update queen and check if dead
         if (this.queen) {
             this.queen.update(dt, this);
+            if (!this.queen.alive || this.queen.health <= 0) {
+                this.running = false;
+                alert('Your Queen died! Game Over. Refresh to play again.');
+            }
         }
 
         // Update AI workers
@@ -1295,8 +1299,9 @@ class Ant {
 
         ctx.restore();
 
-        // Health bar
-        if (this.health < this.maxHealth || this.isPlayer) {
+        // Health bar - always show for enemies, show for player/workers when damaged
+        const isEnemy = this.color === '#FF0000';
+        if (this.health < this.maxHealth || this.isPlayer || isEnemy) {
             const barWidth = size * 2.5;
             const barHeight = 4;
             const barX = screenX - barWidth / 2;
@@ -1541,14 +1546,15 @@ class WorkerAnt extends Ant {
             const dy = enemy.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist < 1.2) {
-                // Attack - increased range
+            if (dist < 1.5) {
+                // Attack - increased range to 1.5
                 if (this.attackCooldown === 0) {
+                    const healthBefore = enemy.health;
                     enemy.takeDamage(15, game);
                     this.attackCooldown = 0.5; // Faster attacks
                     game.spawnHitParticles(enemy.x, enemy.y);
                     game.screenShake.intensity = 8;
-                    console.log(`Player attacked enemy! Enemy health: ${enemy.health}`);
+                    console.log(`Player attacked enemy! HP: ${healthBefore} -> ${enemy.health} (alive: ${enemy.alive})`);
                 }
             }
         }
