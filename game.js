@@ -343,6 +343,12 @@ class Game {
 
         // Render particles
         this.particles.forEach(p => p.render(ctx, this.camera, this.tileSize));
+
+        // Test text at bottom
+        ctx.fillStyle = '#00FF00';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('test', this.canvas.width / 2, this.canvas.height - 20);
     }
 
     renderTile(x, y) {
