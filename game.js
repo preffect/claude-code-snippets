@@ -1684,12 +1684,14 @@ class WorkerAnt extends Ant {
 
             // Ants can't fly - prevent movement above grass level (y < 8) unless climbing a plant
             const targetTile = game.getTile(newX, newY);
+            const currentTile = game.getTile(this.x, this.y);
             const isClimbingPlant = newY < 8 && targetTile && targetTile.type === 'plant';
+            const isClimbingDown = newY > this.y && currentTile && currentTile.type === 'plant'; // Allow climbing down from plants
 
             let moved = false;
 
             // Try primary direction first
-            if ((newY >= 8 || isClimbingPlant) && game.canMove(newX, newY)) {
+            if ((newY >= 8 || isClimbingPlant || isClimbingDown) && game.canMove(newX, newY)) {
                 this.x = newX;
                 this.y = newY;
                 moved = true;
@@ -1701,7 +1703,8 @@ class WorkerAnt extends Ant {
                 const tryX = this.x + input.x * this.speed * dt;
                 const tryXTile = game.getTile(tryX, this.y);
                 const isXClimbingPlant = tryXTile && tryXTile.type === 'plant';
-                if (this.y >= 8 || isXClimbingPlant) {
+                const isXClimbingDown = this.y > this.y && currentTile && currentTile.type === 'plant'; // Always false for horizontal movement
+                if (this.y >= 8 || isXClimbingPlant || isXClimbingDown) {
                     if (game.canMove(tryX, this.y)) {
                         this.x = tryX;
                         moved = true;
@@ -1713,7 +1716,8 @@ class WorkerAnt extends Ant {
                     const tryY = this.y + input.y * this.speed * dt;
                     const tryYTile = game.getTile(this.x, tryY);
                     const isYClimbingPlant = tryYTile && tryYTile.type === 'plant';
-                    if (tryY >= 8 || isYClimbingPlant) {
+                    const isYClimbingDown = tryY > this.y && currentTile && currentTile.type === 'plant'; // Allow climbing down from plants
+                    if (tryY >= 8 || isYClimbingPlant || isYClimbingDown) {
                         if (game.canMove(this.x, tryY)) {
                             this.y = tryY;
                             moved = true;
@@ -1723,16 +1727,22 @@ class WorkerAnt extends Ant {
 
                 // If still can't move, dig to clear path
                 if (!moved) {
-                    // For diagonal movement, dig both X and Y blocking tiles
-                    if (Math.abs(input.x) > 0.1 && Math.abs(input.y) > 0.1) {
-                        // Diagonal - dig both directions to prevent getting stuck
-                        game.digTile(this.x + input.x * 0.6, this.y, dt * 8);
-                        game.digTile(this.x, this.y + input.y * 0.6, dt * 8);
-                    }
-                    // Always dig in the movement direction
+                    // Only dig if we're underground (y >= 8) OR pointing directly down at the ground
                     const digX = this.x + input.x * 0.6;
                     const digY = this.y + input.y * 0.6;
-                    game.digTile(digX, digY, dt * 10);
+                    const isPointingDown = input.y > 0.7; // Player is pointing mostly downward
+                    const isUnderground = this.y >= 8;
+
+                    if (isUnderground || isPointingDown) {
+                        // For diagonal movement, dig both X and Y blocking tiles
+                        if (Math.abs(input.x) > 0.1 && Math.abs(input.y) > 0.1) {
+                            // Diagonal - dig both directions to prevent getting stuck
+                            game.digTile(this.x + input.x * 0.6, this.y, dt * 8);
+                            game.digTile(this.x, this.y + input.y * 0.6, dt * 8);
+                        }
+                        // Always dig in the movement direction
+                        game.digTile(digX, digY, dt * 10);
+                    }
                 }
             }
         }
@@ -1890,12 +1900,14 @@ class WorkerAnt extends Ant {
 
             // Ants can't fly - prevent movement above grass level (y < 8) unless climbing a plant
             const targetTile = game.getTile(newX, newY);
+            const currentTile = game.getTile(this.x, this.y);
             const isClimbingPlant = targetTile && targetTile.type === 'plant';
+            const isClimbingDown = newY > this.y && currentTile && currentTile.type === 'plant'; // Allow climbing down from plants
 
             let moved = false;
 
             // Try primary direction first
-            if ((newY >= 8 || isClimbingPlant) && game.canMove(newX, newY)) {
+            if ((newY >= 8 || isClimbingPlant || isClimbingDown) && game.canMove(newX, newY)) {
                 this.x = newX;
                 this.y = newY;
                 moved = true;
@@ -1907,7 +1919,8 @@ class WorkerAnt extends Ant {
                 const tryX = this.x + dirX * this.speed * dt;
                 const tryXTile = game.getTile(tryX, this.y);
                 const isXClimbingPlant = tryXTile && tryXTile.type === 'plant';
-                if (this.y >= 8 || isXClimbingPlant) {
+                const isXClimbingDown = this.y > this.y && currentTile && currentTile.type === 'plant'; // Always false for horizontal
+                if (this.y >= 8 || isXClimbingPlant || isXClimbingDown) {
                     if (game.canMove(tryX, this.y)) {
                         this.x = tryX;
                         moved = true;
@@ -1919,7 +1932,8 @@ class WorkerAnt extends Ant {
                     const tryY = this.y + dirY * this.speed * dt;
                     const tryYTile = game.getTile(this.x, tryY);
                     const isYClimbingPlant = tryYTile && tryYTile.type === 'plant';
-                    if (tryY >= 8 || isYClimbingPlant) {
+                    const isYClimbingDown = tryY > this.y && currentTile && currentTile.type === 'plant'; // Allow climbing down from plants
+                    if (tryY >= 8 || isYClimbingPlant || isYClimbingDown) {
                         if (game.canMove(this.x, tryY)) {
                             this.y = tryY;
                             moved = true;
@@ -1927,8 +1941,8 @@ class WorkerAnt extends Ant {
                     }
                 }
 
-                // If still can't move, dig to clear path
-                if (!moved) {
+                // If still can't move, dig to clear path (only underground)
+                if (!moved && this.y >= 8) {
                     // For diagonal movement, dig both X and Y directions
                     if (Math.abs(dirX) > 0.1 && Math.abs(dirY) > 0.1) {
                         // Diagonal - dig both directions to prevent getting stuck
@@ -2627,16 +2641,19 @@ class EnemyAnt extends Ant {
 
             // Ants can't fly - prevent movement above grass level (y < 8) unless climbing a plant
             const targetTile = game.getTile(newX, newY);
+            const currentTile = game.getTile(this.x, this.y);
             const isClimbingPlant = targetTile && targetTile.type === 'plant';
-            if (newY < 8 && !isClimbingPlant) {
+            const isClimbingDown = newY > this.y && currentTile && currentTile.type === 'plant'; // Allow climbing down from plants
+
+            if (newY < 8 && !isClimbingPlant && !isClimbingDown) {
                 return;
             }
 
             if (game.canMove(newX, newY)) {
                 this.x = newX;
                 this.y = newY;
-            } else {
-                // Blocked - dig to clear path (enemy ants can dig)
+            } else if (this.y >= 8) {
+                // Blocked - dig to clear path (enemy ants can dig, but only underground)
                 // For diagonal movement, dig both X and Y directions
                 if (Math.abs(dirX) > 0.1 && Math.abs(dirY) > 0.1) {
                     // Diagonal - dig both directions to prevent getting stuck
