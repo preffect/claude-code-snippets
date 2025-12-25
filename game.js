@@ -570,8 +570,21 @@ class Game {
                     if (openCount > 20 && openCount < 50) {
                         // Make sure not too close to starting area
                         const startX = this.worldWidth / 2;
-                        const dist = Math.abs(x - startX);
-                        if (dist > 30) {
+                        const distFromStart = Math.abs(x - startX);
+
+                        // Make sure not too close to any food sources
+                        let tooCloseToFood = false;
+                        for (const food of this.foodSources) {
+                            const dx = food.x - (x + 0.5);
+                            const dy = food.y - (y + 0.5);
+                            const distToFood = Math.sqrt(dx * dx + dy * dy);
+                            if (distToFood < 15) { // Minimum 15 units from food
+                                tooCloseToFood = true;
+                                break;
+                            }
+                        }
+
+                        if (distFromStart > 30 && !tooCloseToFood) {
                             nestSpots.push({ x: x + 0.5, y: y + 0.5 });
                         }
                     }
