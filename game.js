@@ -609,7 +609,6 @@ class Game {
                 false
             );
             enemyColony.addWorker(worker);
-            console.log(`Added initial worker to ${enemyColony.colors.name} colony at (${spot.x.toFixed(1)}, ${spot.y.toFixed(1)})`);
 
             // Remove used spot to avoid overlap
             nestSpots.splice(nestSpots.indexOf(spot), 1);
@@ -805,18 +804,6 @@ class Game {
             // Sort other colonies by worker count (descending)
             return b.workers.length - a.workers.length;
         });
-
-        // Debug logging
-        console.log('Colonies before sort:', this.colonies.map(c => ({
-            name: c.colors.name,
-            isPlayer: c.isPlayer,
-            workers: c.workers.length
-        })));
-        console.log('Colonies after sort:', sortedColonies.map(c => ({
-            name: c.colors.name,
-            isPlayer: c.isPlayer,
-            workers: c.workers.length
-        })));
 
         // Build faction stats HTML
         let html = '';
@@ -1551,7 +1538,6 @@ class WorkerAnt extends Ant {
                     this.foodAmount = taken;
                     this.carryingFood = true;
                     game.spawnFoodParticles(this.x, this.y);
-                    console.log(`Picked up ${taken} food! Carrying: ${this.carryingFood}`);
                     break;
                 }
             }
@@ -1611,7 +1597,6 @@ class WorkerAnt extends Ant {
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < 2.5) {
-                    console.log(`Worker delivered ${this.foodAmount} food to ${this.colony.colors.name} colony! New total: ${this.colony.food + this.foodAmount}`);
                     this.colony.food += this.foodAmount;
                     this.foodAmount = 0;
                     this.carryingFood = false;
@@ -2254,7 +2239,6 @@ class EnemyAnt extends Ant {
 
             if (dist < 2.5) {
                 this.queen.food += this.foodAmount;
-                console.log(`Enemy worker delivered ${this.foodAmount} food to queen! Queen food: ${this.queen.food}`);
                 this.foodAmount = 0;
                 this.carryingFood = false;
                 this.targetFood = null;
@@ -2298,7 +2282,6 @@ class EnemyAnt extends Ant {
                     this.carryingFood = true;
                     this.state = 'carrying';
                     game.spawnFoodParticles(this.x, this.y);
-                    console.log(`Enemy worker picked up ${taken} food!`);
                 }
             } else if (this.queen && this.queen.alive) {
                 // Wander near queen
