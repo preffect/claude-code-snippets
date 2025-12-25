@@ -115,8 +115,8 @@ class Game {
             }
         }
 
-        // Spawn food sources in caves
-        this.spawnFoodInCaves(8);
+        // Spawn food sources in caves (increased for larger map)
+        this.spawnFoodInCaves(20);
 
         // Spawn enemy nests in caves
         this.spawnEnemiesInCaves(4);
