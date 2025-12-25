@@ -2007,7 +2007,7 @@ class EnemyAnt extends Ant {
         this.size = 0.5; // Slightly bigger
         this.speed = 2; // Slower than friendly workers (friendly workers have speed 3)
         this.queen = queen; // Reference to enemy queen
-        this.aggroRange = 8; // Increased from 5 for better detection
+        this.aggroRange = 4; // Reduced so they focus on food gathering unless very close
         this.attackRange = 1.5; // Increased from 1.2 for more reliable combat
         this.attackCooldown = 0;
         this.target = null;
@@ -2036,11 +2036,6 @@ class EnemyAnt extends Ant {
             const dx = game.player.x - this.x;
             const dy = game.player.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-
-            // Debug: log distance to player when very close
-            if (dist < 3 && Math.random() < 0.02) {
-                console.log(`Enemy near player! Distance: ${dist.toFixed(2)}, Aggro range: ${this.aggroRange}, Cooldown: ${this.attackCooldown.toFixed(2)}`);
-            }
 
             if (dist < this.aggroRange && dist < nearestDist) {
                 nearestDist = dist;
@@ -2084,11 +2079,6 @@ class EnemyAnt extends Ant {
 
             this.target = nearest;
 
-            // Debug: log when chasing player
-            if (nearest === game.player && Math.random() < 0.01) {
-                console.log(`Enemy chasing player! Distance: ${nearestDist.toFixed(2)}, Attack range: ${this.attackRange}`);
-            }
-
             this.moveTowards(nearest.x, nearest.y, dt, game);
 
             // Recalculate distance after moving to check for attack
@@ -2096,27 +2086,12 @@ class EnemyAnt extends Ant {
             const dy = nearest.y - this.y;
             const currentDist = Math.sqrt(dx * dx + dy * dy);
 
-            // Detailed debug logging
-            if (nearest === game.player && currentDist < 2) {
-                console.log(`ATTACK CHECK: dist=${currentDist.toFixed(2)}, attackRange=${this.attackRange}, cooldown=${this.attackCooldown.toFixed(2)}, willAttack=${currentDist < this.attackRange && this.attackCooldown === 0}`);
-            }
-
             if (currentDist < this.attackRange && this.attackCooldown === 0) {
                 const damage = 8;
-                const healthBefore = nearest.health;
                 nearest.takeDamage(damage);
                 this.attackCooldown = 1;
                 game.spawnHitParticles(nearest.x, nearest.y);
                 game.screenShake.intensity = 10;
-
-                // Log attacks for debugging
-                if (nearest === game.player) {
-                    console.log(`>>> ENEMY ATTACKED PLAYER! Health: ${healthBefore} -> ${nearest.health} (damage: ${damage}) <<<`);
-                } else if (nearest === game.queen) {
-                    console.log(`>>> Enemy attacked queen! Health: ${healthBefore} -> ${nearest.health} <<<`);
-                } else {
-                    console.log(`>>> Enemy attacked worker! Health: ${healthBefore} -> ${nearest.health} <<<`);
-                }
             }
         } else if (this.carryingFood && this.queen && this.queen.alive) {
             // Return food to enemy queen
