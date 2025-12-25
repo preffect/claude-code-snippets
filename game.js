@@ -596,6 +596,7 @@ class Game {
                 false
             );
             enemyColony.addWorker(worker);
+            console.log(`Added initial worker to ${enemyColony.colors.name} colony at (${spot.x.toFixed(1)}, ${spot.y.toFixed(1)})`);
 
             // Remove used spot to avoid overlap
             nestSpots.splice(nestSpots.indexOf(spot), 1);
@@ -1597,6 +1598,7 @@ class WorkerAnt extends Ant {
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < 2.5) {
+                    console.log(`Worker delivered ${this.foodAmount} food to ${this.colony.colors.name} colony! New total: ${this.colony.food + this.foodAmount}`);
                     this.colony.food += this.foodAmount;
                     this.foodAmount = 0;
                     this.carryingFood = false;
