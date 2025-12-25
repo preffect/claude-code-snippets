@@ -121,6 +121,25 @@ class Game {
         this.joystick.game = this; // Connect joystick to game
 
         this.init();
+        this.setupFactionsMenu();
+    }
+
+    setupFactionsMenu() {
+        const toggleButton = document.getElementById('factions-toggle');
+        const content = document.getElementById('factions-content');
+
+        if (toggleButton && content) {
+            toggleButton.addEventListener('click', () => {
+                const isCollapsed = content.classList.contains('collapsed');
+                if (isCollapsed) {
+                    content.classList.remove('collapsed');
+                    toggleButton.textContent = 'Factions ▲';
+                } else {
+                    content.classList.add('collapsed');
+                    toggleButton.textContent = 'Factions ▼';
+                }
+            });
+        }
     }
 
     setupCanvas() {
@@ -757,6 +776,53 @@ class Game {
         // Update player health
         document.getElementById('health').textContent =
             this.player ? Math.ceil(this.player.health) : 0;
+
+        // Update factions menu
+        this.updateFactionsUI();
+    }
+
+    updateFactionsUI() {
+        const content = document.getElementById('factions-content');
+        if (!content) return;
+
+        // Build faction stats HTML
+        let html = '';
+        for (const colony of this.colonies) {
+            // Calculate average worker health
+            let avgHealth = 0;
+            if (colony.workers.length > 0) {
+                const totalHealth = colony.workers.reduce((sum, w) => sum + w.health, 0);
+                avgHealth = Math.ceil(totalHealth / colony.workers.length);
+            }
+
+            // Determine if this is the player's faction
+            const isPlayer = colony.isPlayer ? ' (You)' : '';
+
+            html += `
+                <div class="faction-item">
+                    <div class="faction-name">
+                        <span class="faction-color-dot" style="background-color: ${colony.colors.worker}"></span>
+                        ${colony.colors.name}${isPlayer}
+                    </div>
+                    <div class="faction-stats">
+                        <div class="faction-stat">
+                            <span class="faction-stat-label">Workers:</span>
+                            <span>${colony.workers.length}</span>
+                        </div>
+                        <div class="faction-stat">
+                            <span class="faction-stat-label">Avg HP:</span>
+                            <span>${avgHealth}</span>
+                        </div>
+                        <div class="faction-stat">
+                            <span class="faction-stat-label">Food:</span>
+                            <span>${Math.floor(colony.food)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        content.innerHTML = html;
     }
 
     render() {

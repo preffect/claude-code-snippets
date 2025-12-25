@@ -83,6 +83,87 @@ body {
     text-align: center;
 }
 
+/* Factions Menu */
+#factions-menu {
+    margin-top: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+    backdrop-filter: blur(5px);
+    overflow: hidden;
+}
+
+#factions-toggle {
+    width: 100%;
+    padding: 10px 15px;
+    background: rgba(255, 165, 0, 0.2);
+    border: none;
+    color: #ffa500;
+    font-weight: bold;
+    font-size: 1em;
+    cursor: pointer;
+    text-align: left;
+    pointer-events: auto;
+    transition: background 0.2s;
+}
+
+#factions-toggle:hover {
+    background: rgba(255, 165, 0, 0.3);
+}
+
+#factions-content {
+    max-height: 300px;
+    overflow-y: auto;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+#factions-content.collapsed {
+    max-height: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.faction-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.faction-item:last-child {
+    border-bottom: none;
+}
+
+.faction-name {
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.faction-color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.faction-stats {
+    display: flex;
+    gap: 15px;
+    font-size: 0.9em;
+    color: #ccc;
+    flex-wrap: wrap;
+}
+
+.faction-stat {
+    display: flex;
+    gap: 4px;
+}
+
+.faction-stat-label {
+    color: #888;
+}
+
 #joystick-container {
     position: absolute;
     bottom: 20px;
