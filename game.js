@@ -1325,8 +1325,10 @@ class Game {
 
                 // Ants can't fly - prevent pathfinding above grass level (y < 8) unless climbing a plant
                 const neighborTile = this.getTile(neighbor.x, neighbor.y);
+                const currentTileInPath = this.getTile(current.x, current.y);
                 const isClimbingPlant = neighborTile && neighborTile.type === 'plant';
-                if (neighbor.y < 8 && !isClimbingPlant) {
+                const isClimbingDown = neighbor.y > current.y && currentTileInPath && currentTileInPath.type === 'plant'; // Allow climbing down from plants
+                if (neighbor.y < 8 && !isClimbingPlant && !isClimbingDown) {
                     continue; // Can't path through air
                 }
 
@@ -1727,10 +1729,10 @@ class WorkerAnt extends Ant {
 
                 // If still can't move, dig to clear path
                 if (!moved) {
-                    // Only dig if we're underground (y >= 8) OR pointing directly down at the ground
+                    // Only dig if we're underground (y >= 8) OR pointing somewhat down at the ground
                     const digX = this.x + input.x * 0.6;
                     const digY = this.y + input.y * 0.6;
-                    const isPointingDown = input.y > 0.7; // Player is pointing mostly downward
+                    const isPointingDown = input.y > 0.3; // Player is pointing somewhat downward
                     const isUnderground = this.y >= 8;
 
                     if (isUnderground || isPointingDown) {
